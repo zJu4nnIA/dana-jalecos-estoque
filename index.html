@@ -327,17 +327,17 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section">Principal</div>
-      <button class="active" onclick="showPage('dashboard',this)"><span class="icon">📊</span> Dashboard</button>
-      <button onclick="showPage('estoque',this)"><span class="icon">📦</span> Estoque</button>
-      <button class="role-admin role-estoquista" onclick="showPage('alertas',this)"><span class="icon">⚠️</span> Alertas <span id="alertBadge" style="background:var(--red);color:var(--bg);font-size:.65rem;font-weight:700;padding:.1rem .4rem;border-radius:10px;margin-left:.3rem;display:none;">0</span></button>
-      <button onclick="showPage('historico',this)"><span class="icon">📜</span> Histórico</button>
-      <div class="nav-section role-admin role-estoquista">Estoque</div>
-      <button class="role-admin role-estoquista" onclick="showPage('cadastro',this)"><span class="icon">📝</span> Cadastrar Produto</button>
-      <button class="role-admin role-estoquista" onclick="showPage('entrada',this)"><span class="icon">📥</span> Registrar Entrada</button>
-      <button onclick="showPage('saida',this)"><span class="icon">📤</span> Registrar Saída</button>
-      <button class="role-admin role-estoquista" onclick="showPage('compras',this)"><span class="icon">💰</span> Compras</button>
-      <div class="nav-section role-admin">Administração</div>
-      <button class="role-admin" onclick="showPage('usuarios',this)"><span class="icon">👥</span> Gerenciar Usuários</button>
+      <button data-perm="dashboard" class="active" onclick="showPage('dashboard',this)"><span class="icon">📊</span> Dashboard</button>
+      <button data-perm="estoque" onclick="showPage('estoque',this)"><span class="icon">📦</span> Estoque</button>
+      <button data-perm="alertas" onclick="showPage('alertas',this)"><span class="icon">⚠️</span> Alertas <span id="alertBadge" style="background:var(--red);color:var(--bg);font-size:.65rem;font-weight:700;padding:.1rem .4rem;border-radius:10px;margin-left:.3rem;display:none;">0</span></button>
+      <button data-perm="historico" onclick="showPage('historico',this)"><span class="icon">📜</span> Histórico</button>
+      <div class="nav-section" data-perm-section="cadastro,entrada">Estoque</div>
+      <button data-perm="cadastro" onclick="showPage('cadastro',this)"><span class="icon">📝</span> Cadastrar Produto</button>
+      <button data-perm="entrada" onclick="showPage('entrada',this)"><span class="icon">📥</span> Registrar Entrada</button>
+      <button data-perm="saida" onclick="showPage('saida',this)"><span class="icon">📤</span> Registrar Saída</button>
+      <button data-perm="compras" onclick="showPage('compras',this)"><span class="icon">💰</span> Compras</button>
+      <div class="nav-section" data-perm-admin>Administração</div>
+      <button data-perm-admin onclick="showPage('usuarios',this)"><span class="icon">👥</span> Gerenciar Usuários</button>
       <div class="nav-section">Conta</div>
       <button onclick="showPage('perfil',this)"><span class="icon">👤</span> Meu Perfil</button>
     </nav>
@@ -350,7 +350,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
   <div class="main">
     <!-- DASHBOARD -->
     <div id="page-dashboard" class="page">
-      <div class="topbar"><h2>Dashboard</h2><div class="topbar-actions"><button class="btn btn-primary role-admin role-estoquista" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
+      <div class="topbar"><h2>Dashboard</h2><div class="topbar-actions"><button class="btn btn-primary" data-perm-btn="cadastro" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
       <div class="content">
         <div class="stats-grid" id="dashStats"></div>
 
@@ -487,7 +487,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
 
     <!-- ESTOQUE -->
     <div id="page-estoque" class="page hidden">
-      <div class="topbar"><h2>Estoque</h2><div class="topbar-actions"><button class="btn role-admin role-estoquista" onclick="showPage('entrada',navBtn('entrada'))">📥 Registrar Entrada</button><button class="btn btn-primary role-admin role-estoquista" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
+      <div class="topbar"><h2>Estoque</h2><div class="topbar-actions"><button class="btn" data-perm-btn="entrada" onclick="showPage('entrada',navBtn('entrada'))">📥 Registrar Entrada</button><button class="btn btn-primary" data-perm-btn="cadastro" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
       <div class="content">
         <div class="filter-bar">
           <input id="sSearch" placeholder="Buscar..." oninput="renderStock()">
@@ -574,6 +574,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
                 <select id="newUserRole">
                   <option value="costureira">Costureira</option>
                   <option value="estoquista">Estoquista</option>
+                  <option value="gerente">Gerente</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
@@ -589,6 +590,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:1.2rem;">
           <div class="stat-card"><div class="stat-label">Total Usuários</div><div class="stat-value" id="usrTotal">0</div></div>
           <div class="stat-card"><div class="stat-label">Admins</div><div class="stat-value" id="usrAdmins" style="color:var(--blue)">0</div></div>
+          <div class="stat-card"><div class="stat-label">Gerentes</div><div class="stat-value" id="usrGerentes" style="color:#a78bfa">0</div></div>
           <div class="stat-card"><div class="stat-label">Estoquistas</div><div class="stat-value" id="usrEstoq" style="color:var(--green)">0</div></div>
           <div class="stat-card"><div class="stat-label">Costureiras</div><div class="stat-value" id="usrCost" style="color:var(--orange)">0</div></div>
         </div>
@@ -599,23 +601,11 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
           </table>
         </div>
         <div style="margin-top:1.2rem;padding:1rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
-          <h4 style="font-size:.82rem;font-weight:700;margin-bottom:.6rem;">Permissões por Cargo</h4>
-          <table style="width:100%;font-size:.78rem;color:var(--text-secondary);border-collapse:collapse;">
-            <tr style="border-bottom:1px solid var(--border);">
-              <th style="text-align:left;padding:.4rem .6rem;color:var(--text-muted);font-size:.7rem;text-transform:uppercase;">Ação</th>
-              <th style="padding:.4rem .6rem;color:var(--blue);font-size:.7rem;">Admin</th>
-              <th style="padding:.4rem .6rem;color:var(--green);font-size:.7rem;">Estoquista</th>
-              <th style="padding:.4rem .6rem;color:var(--orange);font-size:.7rem;">Costureira</th>
-            </tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Ver Dashboard</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Ver Estoque</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Ver Histórico</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Cadastrar Produto</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td></tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Registrar Entrada</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td></tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Registrar Saída</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
-            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Excluir Movimentações</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td><td style="text-align:center;color:var(--red);">✗</td></tr>
-            <tr><td style="padding:.4rem .6rem;">Gerenciar Usuários</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td><td style="text-align:center;color:var(--red);">✗</td></tr>
-          </table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;">
+            <h4 style="font-size:.82rem;font-weight:700;">Permissões por Cargo</h4>
+            <span style="font-size:.7rem;color:var(--text-muted);">Admin sempre tem acesso total</span>
+          </div>
+          <div id="permissionsTable"></div>
         </div>
       </div>
     </div>
@@ -824,25 +814,51 @@ async function saveProfile(){
   enterApp();
 }
 
-const ROLE_LABELS={admin:'Administrador',estoquista:'Estoquista',costureira:'Costureira',user:'Usuário'};
+const ROLE_LABELS={admin:'Administrador',gerente:'Gerente',estoquista:'Estoquista',costureira:'Costureira',user:'Usuário'};
+const PERM_LABELS={dashboard:'Ver Dashboard',estoque:'Ver Estoque',alertas:'Ver Alertas',historico:'Ver Histórico',cadastro:'Cadastrar Produto',entrada:'Registrar Entrada',saida:'Registrar Saída',compras:'Ver Compras',excluir_mov:'Excluir Movimentações'};
+let rolePerms={};
 function hasRole(...roles){return roles.includes(profile?.role);}
+function canAccess(perm){
+  if(!profile)return false;
+  if(profile.role==='admin')return true;
+  const rp=rolePerms[profile.role];
+  if(!rp)return false;
+  return rp[perm]===true;
+}
+function applyPermissions(){
+  const isAdmin=profile.role==='admin';
+  // Sidebar buttons with data-perm
+  document.querySelectorAll('[data-perm]').forEach(el=>{
+    const perm=el.getAttribute('data-perm');
+    el.style.display=canAccess(perm)?'':'none';
+  });
+  // Admin-only elements
+  document.querySelectorAll('[data-perm-admin]').forEach(el=>{
+    el.style.display=isAdmin?'':'none';
+  });
+  // Section headers: show if any child perm is visible
+  document.querySelectorAll('[data-perm-section]').forEach(el=>{
+    const perms=el.getAttribute('data-perm-section').split(',');
+    const anyVisible=perms.some(p=>canAccess(p));
+    el.style.display=anyVisible?'':'none';
+  });
+  // Buttons with data-perm-btn
+  document.querySelectorAll('[data-perm-btn]').forEach(el=>{
+    const perm=el.getAttribute('data-perm-btn');
+    el.style.display=canAccess(perm)?'':'none';
+  });
+}
 
 async function enterApp(){
   showScreen('app');
   $('userName').textContent=profile.display_name;
   $('userRole').textContent=ROLE_LABELS[profile.role]||profile.role;
   $('userAvatar').textContent=profile.display_name.charAt(0).toUpperCase();
-  // Toggle elements by role
-  const r=profile.role;
-  document.querySelectorAll('.role-admin').forEach(el=>el.style.display=r==='admin'?'':'none');
-  document.querySelectorAll('.role-estoquista').forEach(el=>el.style.display=(r==='admin'||r==='estoquista')?'':'none');
-  document.querySelectorAll('.role-costureira').forEach(el=>el.style.display=(r==='admin'||r==='estoquista'||r==='costureira')?'':'none');
-  // Legacy admin-only class
-  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=r==='admin'?'':'none');
   await loadAll();
-  // Restore last page or go to dashboard
+  applyPermissions();
   const lastPage=sessionStorage.getItem('dana_page')||'dashboard';
-  showPage(lastPage,navBtn(lastPage));
+  const page=canAccess(lastPage)?lastPage:'dashboard';
+  showPage(page,navBtn(page));
   setupRealtime();
   appReady=true;
 }
@@ -850,13 +866,15 @@ async function enterApp(){
 // ═══ DATA ═══
 let purchases=[];
 async function loadAll(){
-  const[f,m,p,pu]=await Promise.all([
+  const[f,m,p,pu,rp]=await Promise.all([
     sb.from('fabrics').select('*').order('created_at',{ascending:false}),
     sb.from('movements').select('*').order('created_at',{ascending:false}),
     sb.from('profiles').select('*'),
-    sb.from('purchases').select('*').order('date',{ascending:false})
+    sb.from('purchases').select('*').order('date',{ascending:false}),
+    sb.from('role_permissions').select('*').eq('id',1).maybeSingle()
   ]);
   fabrics=f.data||[];movements=m.data||[];profiles=p.data||[];purchases=pu.data||[];
+  rolePerms=(rp.data?.permissions)||{};
 }
 function setupRealtime(){
   sb.channel('changes')
@@ -1392,13 +1410,15 @@ async function renderUsers(){
   await loadAuthUsers();
   $('usrTotal').textContent=profiles.length;
   $('usrAdmins').textContent=profiles.filter(p=>p.role==='admin').length;
+  $('usrGerentes').textContent=profiles.filter(p=>p.role==='gerente').length;
   $('usrEstoq').textContent=profiles.filter(p=>p.role==='estoquista').length;
   $('usrCost').textContent=profiles.filter(p=>p.role==='costureira').length;
+  renderPermissionsTable();
   const tb=$('usrList');
   tb.innerHTML=profiles.map(p=>{
     const isMe=p.id===user.id;
     const rl=ROLE_LABELS[p.role]||p.role;
-    const badgeColor=p.role==='admin'?'blue':p.role==='estoquista'?'ok':p.role==='costureira'?'low':'';
+    const badgeColor=p.role==='admin'?'blue':p.role==='gerente'?'blue':p.role==='estoquista'?'ok':p.role==='costureira'?'low':'';
     return`<tr>
       <td><strong>${esc(p.display_name||'(sem nome)')}</strong>${isMe?' <span style="font-size:.68rem;color:var(--text-muted);">(você)</span>':''}</td>
       <td style="font-size:.78rem;color:var(--text-muted);">${esc(getEmailById(p.id))}</td>
@@ -1406,6 +1426,7 @@ async function renderUsers(){
       <td>${isMe?'<span style="font-size:.78rem;color:var(--text-muted);">—</span>':`
         <select onchange="changeRole('${p.id}',this.value)" style="padding:.3rem .5rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;font-size:.78rem;color:var(--text);font-family:var(--body);cursor:pointer;">
           <option value="admin"${p.role==='admin'?' selected':''}>Administrador</option>
+          <option value="gerente"${p.role==='gerente'?' selected':''}>Gerente</option>
           <option value="estoquista"${p.role==='estoquista'?' selected':''}>Estoquista</option>
           <option value="costureira"${p.role==='costureira'?' selected':''}>Costureira</option>
         </select>`}
@@ -1445,6 +1466,51 @@ async function deleteUser(uid){
       toast('Usuário apagado.');
     }catch(e){toast('Erro: '+e.message);}
   });
+}
+
+// ═══ PERMISSIONS TABLE ═══
+function renderPermissionsTable(){
+  const roles=['gerente','estoquista','costureira'];
+  const roleColors={gerente:'#a78bfa',estoquista:'var(--green)',costureira:'var(--orange)'};
+  const perms=Object.keys(PERM_LABELS);
+
+  let html=`<table style="width:100%;font-size:.78rem;color:var(--text-secondary);border-collapse:collapse;">
+    <tr style="border-bottom:1px solid var(--border);">
+      <th style="text-align:left;padding:.5rem .6rem;color:var(--text-muted);font-size:.7rem;text-transform:uppercase;">Permissão</th>
+      <th style="padding:.5rem .6rem;text-align:center;color:var(--blue);font-size:.7rem;">Admin</th>
+      ${roles.map(r=>`<th style="padding:.5rem .6rem;text-align:center;color:${roleColors[r]};font-size:.7rem;">${ROLE_LABELS[r]}</th>`).join('')}
+    </tr>`;
+
+  perms.forEach(perm=>{
+    html+=`<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:.4rem .6rem;">${PERM_LABELS[perm]}</td>
+      <td style="text-align:center;color:var(--green);">✓</td>`;
+    roles.forEach(role=>{
+      const checked=rolePerms[role]?.[perm]===true;
+      html+=`<td style="text-align:center;">
+        <input type="checkbox" ${checked?'checked':''} onchange="togglePerm('${role}','${perm}',this.checked)"
+          style="width:16px;height:16px;cursor:pointer;accent-color:${roleColors[role]};">
+      </td>`;
+    });
+    html+='</tr>';
+  });
+
+  html+=`<tr><td style="padding:.4rem .6rem;">Gerenciar Usuários</td>
+    <td style="text-align:center;color:var(--green);">✓</td>
+    ${roles.map(()=>'<td style="text-align:center;color:var(--text-muted);">🔒</td>').join('')}
+  </tr></table>`;
+
+  $('permissionsTable').innerHTML=html;
+}
+
+async function togglePerm(role,perm,value){
+  if(!rolePerms[role])rolePerms[role]={};
+  rolePerms[role][perm]=value;
+  // Save to Supabase
+  const{error}=await sb.from('role_permissions').update({permissions:rolePerms,updated_at:new Date().toISOString()}).eq('id',1);
+  if(error){toast('Erro ao salvar permissão: '+error.message);return;}
+  toast(`${ROLE_LABELS[role]}: ${PERM_LABELS[perm]} ${value?'ativado':'desativado'}`);
+  applyPermissions();
 }
 
 // ═══ CREATE USER (admin) ═══
@@ -2158,8 +2224,8 @@ function renderHist(){
     return true;
   });
   const tb=$('histList');
-  const isAdmin=profile.role==='admin';
-  if(!list.length){tb.innerHTML=`<tr><td colspan="${isAdmin?7:6}"><div class="empty-state"><span class="icon">📜</span><p>Nenhuma movimentação.</p></div></td></tr>`;return;}
+  const canDel=canAccess('excluir_mov');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="${canDel?7:6}"><div class="empty-state"><span class="icon">📜</span><p>Nenhuma movimentação.</p></div></td></tr>`;return;}
   tb.innerHTML=list.map(m=>`<tr>
     <td>${fmtDate(m.date)}</td>
     <td><span class="badge ${m.type==='entrada'?'badge-in':'badge-out'}">${m.type==='entrada'?'↓ Entrada':'↑ Saída'}</span></td>
@@ -2167,7 +2233,7 @@ function renderHist(){
     <td>${m.type==='entrada'?'+':'-'}${m.qty} ${getFabUnit(m.fabric_id)}</td>
     <td>${esc(getWho(m))}</td>
     <td>${esc(m.detail||'')}</td>
-    ${isAdmin?`<td><button class="btn btn-sm btn-danger" onclick="delMov('${m.id}')">Excluir</button></td>`:''}
+    ${canDel?`<td><button class="btn btn-sm btn-danger" onclick="delMov('${m.id}')">Excluir</button></td>`:''}
   </tr>`).join('');
 }
 async function delMov(id){
