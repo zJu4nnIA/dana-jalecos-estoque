@@ -959,34 +959,38 @@ async function createUser(e){
   $('newUserSuccess').style.display='none';
 
   try{
-    // Create user via Supabase Auth REST API (using service role through edge function or direct)
-    // Since we can't use service_role from frontend, we'll use signUp + update profile
-    const{data,error}=await sb.auth.signUp({email,password:pw});
-    if(error){
+    // Use Admin API directly to create user WITHOUT changing current session
+    const SERVICE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aHZjeGZoZGFiY3B2YmZyb29qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc0ODgwOSwiZXhwIjoyMDkxMzI0ODA5fQ.PaKBaV7sVNI5lDVvSiA3I6ihxIJ1KhTwZ0ZwR6saFFc';
+    const res=await fetch(SUPA_URL+'/auth/v1/admin/users',{
+      method:'POST',
+      headers:{'apikey':SERVICE_KEY,'Authorization':'Bearer '+SERVICE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email,password:pw,email_confirm:true})
+    });
+    const result=await res.json();
+    if(!res.ok){
       btn.textContent='Criar Usuário';btn.disabled=false;
-      const m=error.message||'';
-      if(m.includes('already registered')||m.includes('already exists'))
+      const m=result.msg||result.message||result.error||'';
+      if(m.includes('already')&&m.includes('registered'))
         $('newUserError').textContent='Esse email já está cadastrado.';
       else
         $('newUserError').textContent='Erro: '+m;
       $('newUserError').style.display='';
       return false;
     }
-    // Check duplicate (identities empty)
-    if(data?.user?.identities?.length===0){
-      btn.textContent='Criar Usuário';btn.disabled=false;
-      $('newUserError').textContent='Esse email já está cadastrado.';
-      $('newUserError').style.display='';
-      return false;
-    }
-    // Update profile with name and role (using service-accessible policy)
-    if(data?.user?.id){
-      await sb.from('profiles').upsert({id:data.user.id,display_name:name,role:role});
+    // Set profile with name and role via service key
+    if(result.id){
+      await fetch(SUPA_URL+'/rest/v1/profiles',{
+        method:'POST',
+        headers:{
+          'apikey':SERVICE_KEY,'Authorization':'Bearer '+SERVICE_KEY,
+          'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'
+        },
+        body:JSON.stringify({id:result.id,display_name:name,role:role})
+      });
     }
     btn.textContent='Criar Usuário';btn.disabled=false;
     $('newUserSuccess').textContent='Usuário "'+name+'" criado com sucesso! ('+ROLE_LABELS[role]+')';
     $('newUserSuccess').style.display='';
-    // Clear form
     $('newUserName').value='';$('newUserEmail').value='';$('newUserPw').value='';
     // Reload profiles
     const{data:profs}=await sb.from('profiles').select('*');
