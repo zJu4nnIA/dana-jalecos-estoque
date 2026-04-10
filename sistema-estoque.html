@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root{
   --bg:#0e0e0e;--bg-card:#1a1a1a;--bg-card-hover:#222;--bg-input:#141414;
@@ -436,7 +438,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
 
     <!-- ALERTAS -->
     <div id="page-alertas" class="page hidden">
-      <div class="topbar"><h2>Alertas de Estoque</h2></div>
+      <div class="topbar"><h2>Alertas de Estoque</h2><div class="topbar-actions"><button class="btn btn-primary" onclick="exportPDF()">↓ Exportar PDF</button></div></div>
       <div class="content">
         <div class="stats-grid" id="alertStats"></div>
         <div id="alertCritical"></div>
@@ -1022,6 +1024,115 @@ function renderAlerts(){
   if(!critical.length&&!low.length){
     $('alertCritical').innerHTML='<div class="empty-state" style="padding:3rem;"><span class="icon">✅</span><p>Tudo certo! Nenhum produto com estoque baixo.</p></div>';
   }
+}
+
+// ═══ EXPORT PDF ═══
+function exportPDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('pt-BR')+' às '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // Header
+  doc.setFontSize(20);
+  doc.setFont('helvetica','bold');
+  doc.text('Dana Jalecos',14,20);
+  doc.setFontSize(11);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(100);
+  doc.text('Relatório de Estoque — '+dateStr,14,28);
+  doc.setDrawColor(200);
+  doc.line(14,32,196,32);
+
+  // Summary
+  const critical=fabrics.filter(f=>f.stock<=0);
+  const low=fabrics.filter(f=>f.stock>0&&f.stock<=f.min_stock);
+  const ok=fabrics.filter(f=>f.stock>f.min_stock);
+  const total=fabrics.reduce((s,f)=>s+(f.stock||0),0);
+
+  doc.setTextColor(0);
+  doc.setFontSize(12);
+  doc.setFont('helvetica','bold');
+  doc.text('Resumo',14,40);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','normal');
+  doc.text('Total de produtos: '+fabrics.length,14,47);
+  doc.text('Total em estoque: '+total.toFixed(1),14,53);
+  doc.setTextColor(220,50,50);
+  doc.text('Sem estoque: '+critical.length+' produto(s)',14,59);
+  doc.setTextColor(200,150,0);
+  doc.text('Estoque baixo: '+low.length+' produto(s)',14,65);
+  doc.setTextColor(50,180,100);
+  doc.text('Estoque OK: '+ok.length+' produto(s)',14,71);
+
+  let startY=80;
+
+  // Table: Critical
+  if(critical.length){
+    doc.setTextColor(220,50,50);
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.text('SEM ESTOQUE — Reposição Urgente',14,startY);
+    doc.autoTable({
+      startY:startY+4,
+      head:[['Produto','Cor/Variação','Fornecedor','Estoque','Mínimo']],
+      body:critical.map(f=>[f.name,f.color,f.supplier||'—',f.stock.toFixed(1)+' '+f.unit,f.min_stock+' '+f.unit]),
+      styles:{fontSize:9,cellPadding:3},
+      headStyles:{fillColor:[220,50,50],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[255,240,240]},
+      margin:{left:14,right:14}
+    });
+    startY=doc.lastAutoTable.finalY+10;
+  }
+
+  // Table: Low
+  if(low.length){
+    if(startY>250){doc.addPage();startY=20;}
+    doc.setTextColor(200,150,0);
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.text('ESTOQUE BAIXO — Atenção',14,startY);
+    doc.autoTable({
+      startY:startY+4,
+      head:[['Produto','Cor/Variação','Fornecedor','Estoque','Mínimo','Faltam']],
+      body:low.map(f=>[f.name,f.color,f.supplier||'—',f.stock.toFixed(1)+' '+f.unit,f.min_stock+' '+f.unit,(f.min_stock-f.stock).toFixed(1)+' '+f.unit]),
+      styles:{fontSize:9,cellPadding:3},
+      headStyles:{fillColor:[200,150,0],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[255,250,230]},
+      margin:{left:14,right:14}
+    });
+    startY=doc.lastAutoTable.finalY+10;
+  }
+
+  // Table: OK
+  if(ok.length){
+    if(startY>250){doc.addPage();startY=20;}
+    doc.setTextColor(50,180,100);
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.text('ESTOQUE OK',14,startY);
+    doc.autoTable({
+      startY:startY+4,
+      head:[['Produto','Cor/Variação','Fornecedor','Estoque','Mínimo']],
+      body:ok.map(f=>[f.name,f.color,f.supplier||'—',f.stock.toFixed(1)+' '+f.unit,f.min_stock+' '+f.unit]),
+      styles:{fontSize:9,cellPadding:3},
+      headStyles:{fillColor:[50,180,100],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[235,255,245]},
+      margin:{left:14,right:14}
+    });
+  }
+
+  // Footer on all pages
+  const pages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Dana Jalecos — Sistema de Estoque | Página '+i+' de '+pages,14,290);
+  }
+
+  doc.save('estoque-dana-jalecos-'+today()+'.pdf');
+  toast('PDF exportado!');
 }
 
 // ═══ HISTORY ═══
