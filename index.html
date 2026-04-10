@@ -467,7 +467,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
 
     <!-- HISTÓRICO -->
     <div id="page-historico" class="page hidden">
-      <div class="topbar"><h2>Histórico</h2></div>
+      <div class="topbar"><h2>Histórico</h2><div class="topbar-actions"><button class="btn btn-primary" onclick="exportHistPDF()">↓ Exportar PDF</button></div></div>
       <div class="content">
         <div class="filter-bar">
           <select id="hFab" onchange="renderHist()"><option value="all">Todos os produtos</option></select>
@@ -1394,6 +1394,89 @@ function exportPDF(){
 
   doc.save('estoque-dana-jalecos-'+today()+'.pdf');
   toast('PDF exportado!');
+}
+
+// ═══ EXPORT HISTORY PDF ═══
+function exportHistPDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('pt-BR')+' às '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // Apply current filters
+  const ff=$('hFab').value,tf=$('hType').value,from=$('hFrom').value,to=$('hTo').value;
+  let list=movements.filter(m=>{
+    if(ff!=='all'&&m.fabric_id!==ff)return false;
+    if(tf!=='all'&&m.type!==tf)return false;
+    if(from&&m.date<from)return false;
+    if(to&&m.date>to)return false;
+    return true;
+  });
+
+  // Header
+  doc.setFontSize(20);doc.setFont('helvetica','bold');
+  doc.text('Dana Jalecos',14,20);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor(100);
+  doc.text('Histórico de Movimentações — '+dateStr,14,28);
+  doc.setDrawColor(200);doc.line(14,32,196,32);
+
+  // Filter info
+  doc.setFontSize(9);doc.setTextColor(130);
+  let filterText='Filtros: ';
+  if(ff!=='all'){const f=getFab(ff);filterText+='Produto: '+(f?f.name+' '+f.color:'—')+' | ';}else{filterText+='Todos os produtos | ';}
+  if(tf!=='all'){filterText+='Tipo: '+(tf==='entrada'?'Entradas':'Saídas')+' | ';}else{filterText+='Todos os tipos | ';}
+  if(from||to){filterText+='Período: '+(from?fmtDate(from):'início')+' a '+(to?fmtDate(to):'hoje');}else{filterText+='Todo o período';}
+  doc.text(filterText,14,38);
+
+  // Summary
+  const totalEntries=list.filter(m=>m.type==='entrada');
+  const totalExits=list.filter(m=>m.type==='saida');
+  const sumIn=totalEntries.reduce((s,m)=>s+m.qty,0);
+  const sumOut=totalExits.reduce((s,m)=>s+m.qty,0);
+
+  doc.setFontSize(10);doc.setTextColor(0);doc.setFont('helvetica','bold');
+  doc.text('Resumo',14,46);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);
+  doc.text('Total de movimentações: '+list.length,14,52);
+  doc.setTextColor(50,180,100);
+  doc.text('Entradas: '+totalEntries.length+' ('+fmt(sumIn)+' unidades)',14,57);
+  doc.setTextColor(220,50,50);
+  doc.text('Saídas: '+totalExits.length+' ('+fmt(sumOut)+' unidades)',14,62);
+
+  // Table
+  doc.setTextColor(0);
+  doc.autoTable({
+    startY:70,
+    head:[['Data','Tipo','Produto','Qtd','Responsável','Detalhe']],
+    body:list.map(m=>[
+      fmtDate(m.date),
+      m.type==='entrada'?'Entrada':'Saída',
+      getFabLabel(m.fabric_id),
+      (m.type==='entrada'?'+':'-')+fmt(m.qty)+' '+getFabUnit(m.fabric_id),
+      getWho(m),
+      m.detail||''
+    ]),
+    styles:{fontSize:8,cellPadding:2.5},
+    headStyles:{fillColor:[30,30,30],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,245,245]},
+    didParseCell:function(data){
+      if(data.section==='body'&&data.column.index===1){
+        if(data.cell.raw==='Entrada'){data.cell.styles.textColor=[50,180,100];data.cell.styles.fontStyle='bold';}
+        else{data.cell.styles.textColor=[220,50,50];data.cell.styles.fontStyle='bold';}
+      }
+    },
+    margin:{left:14,right:14}
+  });
+
+  // Footer on all pages
+  const pages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);doc.setFontSize(8);doc.setTextColor(150);
+    doc.text('Dana Jalecos — Histórico de Movimentações | Página '+i+' de '+pages,14,290);
+  }
+
+  doc.save('historico-dana-jalecos-'+today()+'.pdf');
+  toast('PDF do histórico exportado!');
 }
 
 // ═══ HISTORY ═══
