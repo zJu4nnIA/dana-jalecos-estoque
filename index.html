@@ -1010,55 +1010,117 @@ async function parseNFPDF(file){
   if(!window.pdfjsLib)throw new Error('Biblioteca PDF não carregou. Recarregue a página.');
   const arrayBuf=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
-  let fullText='';
+
+  // Extract text preserving vertical position to reconstruct lines
+  let textItems=[];
   for(let i=1;i<=pdf.numPages;i++){
     const page=await pdf.getPage(i);
     const content=await page.getTextContent();
-    fullText+=content.items.map(item=>item.str).join(' ')+'\n';
+    content.items.forEach(item=>{
+      if(item.str.trim())textItems.push({text:item.str.trim(),y:Math.round(item.transform[5]),x:Math.round(item.transform[4])});
+    });
   }
-  if(!fullText.trim())throw new Error('PDF sem texto. Se for imagem escaneada, use o XML.');
+  if(!textItems.length)throw new Error('PDF sem texto. Se for imagem escaneada, use o XML.');
 
-  // Try to find supplier
+  // Group by Y position (same line) and sort
+  const lineMap={};
+  textItems.forEach(item=>{
+    const yKey=Math.round(item.y/3)*3; // group nearby Y values
+    if(!lineMap[yKey])lineMap[yKey]=[];
+    lineMap[yKey].push(item);
+  });
+  const lines=Object.keys(lineMap).sort((a,b)=>b-a).map(y=>{
+    return lineMap[y].sort((a,b)=>a.x-b.x).map(i=>i.text).join(' ');
+  });
+
+  const fullText=lines.join('\n');
+  console.log('PDF text extracted:\n',fullText);
+
+  // Find supplier - look for line after "Razão Social" or "Nome/Razão Social" or just the company name near top
   nfSupplier='';
-  const razaoMatch=fullText.match(/(?:Raz[aã]o Social|Nome|Remetente|Emitente)[:\s]*([A-ZÀ-Ü][A-ZÀ-Ü\s&.,\-]{3,50})/i);
-  if(razaoMatch)nfSupplier=razaoMatch[1].trim();
+  for(let i=0;i<Math.min(lines.length,15);i++){
+    const line=lines[i];
+    if(line.match(/raz[aã]o social|nome.*fantasia|emitente/i)){
+      // Supplier is usually on the same line or next line
+      const nameMatch=line.match(/(?:raz[aã]o social|fantasia)[:\s]*(.{3,60})/i);
+      if(nameMatch){nfSupplier=nameMatch[1].trim();break;}
+      if(i+1<lines.length&&lines[i+1].length>3&&!lines[i+1].match(/^(CNPJ|CPF|IE |End)/i)){
+        nfSupplier=lines[i+1].trim();break;
+      }
+    }
+    // Also check for a standalone company name near the top (after DANFE header)
+    if(!nfSupplier&&line.match(/Ltda|LTDA|EIRELI|S\.?A\.?|ME$|EPP$|Ltda CNPJ/i)){
+      nfSupplier=line.replace(/\s*CNPJ.*$/i,'').trim();
+    }
+  }
 
-  // Parse products from text
+  // Find products - DANFE lists items in a table usually after "DADOS DOS PRODUTOS" section
   nfItems=[];
-  // Strategy 1: look for patterns like "product name QTD UN VALOR"
-  const lines=fullText.split('\n');
   let itemId=0;
+  let inProducts=false;
 
-  // Common NF-e PDF pattern: sequential items with code, description, qty, unit, value
-  const itemPattern=/(\d{1,5})\s+(.{5,80}?)\s+(\d+[.,]?\d*)\s+(UN|MT|M|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID|QUILO|PAR|PCT|FD)\s/gi;
-  const matches=[...fullText.matchAll(itemPattern)];
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
 
-  if(matches.length){
-    matches.forEach(m=>{
-      const nome=m[2].trim();
-      const qtd=parseFloat(m[3].replace(',','.'))||0;
-      const un=m[4].toUpperCase();
+    // Detect start of products section
+    if(line.match(/DADOS DOS PRODUTOS|DESCRI[CÇ][AÃ]O DO PRODUTO|C[OÓ]D\.?\s*PROD/i)){
+      inProducts=true;
+      continue;
+    }
+    // Detect end of products section
+    if(inProducts&&line.match(/DADOS ADICIONAIS|INFORMA[CÇ][OÕ]ES|TRANSPORTADOR|FATURA|DUPLICATA|TOTAL/i)){
+      break;
+    }
+
+    if(!inProducts)continue;
+
+    // Skip header-like lines
+    if(line.match(/^(C[OÓ]D|DESCRI|NCM|CFOP|UN |QTD|VALOR|CST|BCST|ITEM)/i))continue;
+    if(line.length<5)continue;
+
+    // Try to find product lines - they usually contain: description + qty + unit + values
+    // Pattern: product name followed by numbers
+    const prodMatch=line.match(/^(.+?)\s+(\d+[.,]?\d{0,4})\s+(MT|M|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID|QUILO|PAR|PCT)\s+/i);
+    if(prodMatch){
+      const nome=prodMatch[1].replace(/^\d{1,6}\s+/,'').trim(); // remove leading product code
+      const qtd=parseFloat(prodMatch[2].replace(',','.'))||0;
+      const un=prodMatch[3];
       if(qtd>0&&nome.length>2){
         nfItems.push({id:itemId++,nome,cor:extractColor(nome),quantidade:qtd,unidade:mapUnit(un),selected:true,matchId:findMatchingProduct(nome,extractColor(nome))});
+        continue;
       }
-    });
-  }
+    }
 
-  // Strategy 2: if no pattern found, try line-by-line with qty detection
-  if(!nfItems.length){
-    const qtyPattern=/(.{5,60}?)\s+(\d+[.,]?\d*)\s*(metros?|m|kg|un|unid|rolos?|caixas?|pcs?|pçs?)/gi;
-    const matches2=[...fullText.matchAll(qtyPattern)];
-    matches2.forEach(m=>{
-      const nome=m[1].trim();
-      const qtd=parseFloat(m[2].replace(',','.'))||0;
-      const un=m[3].toUpperCase();
-      if(qtd>0&&nome.length>2&&!nome.match(/^(CNPJ|CPF|ICMS|PIS|COFINS|TOTAL|BASE|VALOR|FRETE)/i)){
+    // Alternative: look for quantity patterns anywhere in line
+    const altMatch=line.match(/(\d+[.,]?\d{0,4})\s+(MT|M|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID)\b/i);
+    if(altMatch){
+      // Product name is everything before the quantity
+      let nome=line.substring(0,line.indexOf(altMatch[0])).replace(/^\d{1,6}\s+/,'').trim();
+      // Clean up: remove NCM, CFOP codes
+      nome=nome.replace(/\d{8}\s+\d{4}/g,'').replace(/\s+/g,' ').trim();
+      const qtd=parseFloat(altMatch[1].replace(',','.'))||0;
+      const un=altMatch[2];
+      if(qtd>0&&nome.length>3&&!nome.match(/^(CNPJ|ICMS|PIS|COFINS|TOTAL|BASE|VALOR|FRETE|CST|CFOP|NCM)/i)){
         nfItems.push({id:itemId++,nome,cor:extractColor(nome),quantidade:qtd,unidade:mapUnit(un),selected:true,matchId:findMatchingProduct(nome,extractColor(nome))});
       }
-    });
+    }
   }
 
-  if(!nfItems.length)throw new Error('Não consegui identificar produtos no PDF. Tente usar o arquivo XML.');
+  // Fallback: if no products found with section detection, scan all lines
+  if(!nfItems.length){
+    for(const line of lines){
+      const m=line.match(/(.{5,60}?)\s+(\d+[.,]?\d{0,4})\s+(MT|M|UN|KG|RL|PC|PÇ|CX|METRO|UNID)\b/i);
+      if(m){
+        let nome=m[1].replace(/^\d{1,6}\s+/,'').trim();
+        const qtd=parseFloat(m[2].replace(',','.'))||0;
+        if(qtd>0&&nome.length>3&&!nome.match(/^(CNPJ|CPF|ICMS|PIS|COFINS|TOTAL|BASE|VALOR|FRETE|IE|CST|CFOP|NCM|Chave)/i)){
+          nfItems.push({id:itemId++,nome,cor:extractColor(nome),quantidade:qtd,unidade:mapUnit(m[3]),selected:true,matchId:findMatchingProduct(nome,extractColor(nome))});
+        }
+      }
+    }
+  }
+
+  if(!nfItems.length)throw new Error('Não consegui identificar produtos no PDF. O formato pode ser diferente do esperado. Tente usar o arquivo XML.');
 }
 
 // ── Shared helpers ──
