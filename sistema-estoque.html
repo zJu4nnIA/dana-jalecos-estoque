@@ -981,31 +981,17 @@ async function handleNFUpload(e){
     const models=['gemini-1.5-flash','gemini-2.0-flash-lite','gemini-2.0-flash'];
     let res=null;
     let lastErr='';
+    const prompt='Analise esta nota fiscal brasileira e extraia os produtos listados. Retorne APENAS um JSON válido no seguinte formato (sem markdown, sem texto extra): {"fornecedor":"nome do fornecedor","itens":[{"nome":"nome do produto/tecido","cor":"cor se mencionada ou vazio","quantidade":10,"unidade":"metros"}]} Regras: "unidade" pode ser metros, kg, unidades, rolos, caixas. Se não encontrar a cor coloque string vazia. Se não encontrar a unidade use unidades. Se não encontrar o fornecedor coloque string vazia. Extraia TODOS os produtos da nota. Quantidade deve ser número.';
     for(const model of models){
       const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+key,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        contents:[{parts:[
-          {inlineData:{mimeType,data:base64}},
-          {text:`Analise esta nota fiscal brasileira e extraia os produtos listados.
-
-Retorne APENAS um JSON válido no seguinte formato (sem markdown, sem texto extra):
-{
-  "fornecedor": "nome do fornecedor",
-  "itens": [
-    {"nome": "nome do produto/tecido", "cor": "cor se mencionada ou vazio", "quantidade": 10, "unidade": "metros"}
-  ]
-}
-
-Regras:
-- "unidade" pode ser: "metros", "kg", "unidades", "rolos", "caixas"
-- Se não encontrar a cor, coloque ""
-- Se não encontrar a unidade, use "unidades"
-- Se não encontrar o fornecedor, coloque ""
-- Extraia TODOS os produtos da nota
-- Quantidade deve ser número`}
-        ]}]
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[
+            {inlineData:{mimeType:mimeType,data:base64}},
+            {text:prompt}
+          ]}]
+        })
       });
       if(r.ok){res=r;break;}
       const errData=await r.json().catch(()=>({}));
