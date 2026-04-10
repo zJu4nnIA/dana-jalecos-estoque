@@ -641,8 +641,8 @@ async function showForgotPw(){
   if(error){showErr(error.message);return;}
   showOk('Email de recuperação enviado!');
 }
-function showErr(m){const el=$('loginError');el.textContent=m;el.style.display='';}
-function showOk(m){const el=$('loginSuccess');el.textContent=m;el.style.display='';}
+function showErr(m){const el=$('loginError');el.textContent=m;el.style.display='block';}
+function showOk(m){const el=$('loginSuccess');el.textContent=m;el.style.display='block';}
 function hide(id){$(id).style.display='none';}
 
 // ═══ AUTH STATE ═══
