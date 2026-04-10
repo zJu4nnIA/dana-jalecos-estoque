@@ -1021,7 +1021,8 @@ async function parseNFXML(file){
     const nome=getXMLText(prod,'xProd')||'';
     const qtd=parseFloat(getXMLText(prod,'qCom')||getXMLText(prod,'qTrib'))||0;
     const unidadeRaw=(getXMLText(prod,'uCom')||getXMLText(prod,'uTrib')||'UN').toUpperCase();
-    nfItems.push({id:i,nome,cor:extractColor(nome),quantidade:qtd,unidade:mapUnit(unidadeRaw),selected:true,matchId:findMatchingProduct(nome,extractColor(nome))});
+    const unitPrice=parseFloat(getXMLText(prod,'vUnCom')||getXMLText(prod,'vUnTrib'))||0;
+    nfItems.push({id:i,nome,cor:extractColor(nome),quantidade:qtd,unidade:mapUnit(unidadeRaw),unitPrice,selected:true,matchId:findMatchingProduct(nome,extractColor(nome))});
   });
 }
 
@@ -1101,15 +1102,17 @@ async function parseNFPDF(file){
     matches.forEach(m=>{
       // Clean product name: remove R$, values, extra codes
       let nome=m[2].trim()
-        .replace(/R\$\s*[\d.,]+/g,'')
+        .replace(/R\$\s*[\d.,]*/g,'')
         .replace(/Fornecedor de refer[eê]ncia[:\s]*/gi,'')
         .replace(/\d{1,2}[.,]\d{3}[.,]\d{2}/g,'')
         .replace(/\s+/g,' ').trim();
       const qtd=parseFloat(m[6].replace(',','.'))||0;
       const un=m[5];
-      // Also try to extract unit price
-      const priceMatch=prodSection.substring(m.index).match(/R\$\s*([\d.,]+)/);
-      const unitPrice=priceMatch?parseFloat(priceMatch[1].replace(/\./g,'').replace(',','.'))||0:0;
+      // Extract unit price: find R$ values after the quantity match
+      const afterMatch=prodSection.substring(m.index+m[0].length);
+      const prices=[...afterMatch.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map(p=>parseFloat(p[1].replace(/\./g,'').replace(',','.'))||0);
+      // First R$ after qty is usually unit price
+      const unitPrice=prices.length?prices[0]:0;
       if(qtd>0&&nome.length>2){
         nfItems.push({id:itemId++,nome,cor:extractColor(nome),quantidade:qtd,unidade:mapUnit(un),unitPrice,selected:true,matchId:findMatchingProduct(nome,extractColor(nome))});
       }
