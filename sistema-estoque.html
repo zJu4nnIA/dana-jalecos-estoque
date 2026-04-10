@@ -475,8 +475,34 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
 
     <!-- GERENCIAR USUÁRIOS (admin only) -->
     <div id="page-usuarios" class="page hidden">
-      <div class="topbar"><h2>Gerenciar Usuários</h2></div>
+      <div class="topbar"><h2>Gerenciar Usuários</h2><div class="topbar-actions"><button class="btn btn-primary" onclick="toggleNewUser()">+ Novo Usuário</button></div></div>
       <div class="content">
+        <!-- Form criar usuário -->
+        <div class="form-card" id="newUserForm" style="display:none;margin-bottom:1.2rem;">
+          <h3 style="font-size:.9rem;font-weight:700;margin-bottom:1rem;">Criar Novo Usuário</h3>
+          <form onsubmit="return createUser(event)">
+            <div class="form-row">
+              <div class="form-group"><label>Nome</label><input id="newUserName" required placeholder="Nome do colaborador"></div>
+              <div class="form-group"><label>Email</label><input id="newUserEmail" type="email" required placeholder="email@exemplo.com"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Senha</label><input id="newUserPw" type="password" required placeholder="Mínimo 6 caracteres" minlength="6"></div>
+              <div class="form-group"><label>Cargo</label>
+                <select id="newUserRole">
+                  <option value="costureira">Costureira</option>
+                  <option value="estoquista">Estoquista</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="createUserBtn">Criar Usuário</button>
+              <button type="button" class="btn" onclick="toggleNewUser()">Cancelar</button>
+            </div>
+          </form>
+          <div class="login-error" id="newUserError" style="margin-top:.8rem;"></div>
+          <div class="login-success" id="newUserSuccess" style="margin-top:.8rem;"></div>
+        </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:1.2rem;">
           <div class="stat-card"><div class="stat-label">Total Usuários</div><div class="stat-value" id="usrTotal">0</div></div>
           <div class="stat-card"><div class="stat-label">Admins</div><div class="stat-value" id="usrAdmins" style="color:var(--blue)">0</div></div>
@@ -901,6 +927,70 @@ async function changeRole(uid,newRole){
   toast('Cargo alterado para '+ROLE_LABELS[newRole]+'!');
 }
 
+// ═══ CREATE USER (admin) ═══
+function toggleNewUser(){
+  const f=$('newUserForm');
+  f.style.display=f.style.display==='none'?'':'none';
+  $('newUserError').style.display='none';
+  $('newUserSuccess').style.display='none';
+}
+async function createUser(e){
+  e.preventDefault();
+  if(!hasRole('admin')){toast('Sem permissão.');return false;}
+  const name=$('newUserName').value.trim();
+  const email=$('newUserEmail').value.trim();
+  const pw=$('newUserPw').value;
+  const role=$('newUserRole').value;
+  if(!name||!email||!pw){return false;}
+  if(pw.length<6){$('newUserError').textContent='Senha precisa ter no mínimo 6 caracteres.';$('newUserError').style.display='';return false;}
+
+  const btn=$('createUserBtn');
+  btn.textContent='Criando...';btn.disabled=true;
+  $('newUserError').style.display='none';
+  $('newUserSuccess').style.display='none';
+
+  try{
+    // Create user via Supabase Auth REST API (using service role through edge function or direct)
+    // Since we can't use service_role from frontend, we'll use signUp + update profile
+    const{data,error}=await sb.auth.signUp({email,password:pw});
+    if(error){
+      btn.textContent='Criar Usuário';btn.disabled=false;
+      const m=error.message||'';
+      if(m.includes('already registered')||m.includes('already exists'))
+        $('newUserError').textContent='Esse email já está cadastrado.';
+      else
+        $('newUserError').textContent='Erro: '+m;
+      $('newUserError').style.display='';
+      return false;
+    }
+    // Check duplicate (identities empty)
+    if(data?.user?.identities?.length===0){
+      btn.textContent='Criar Usuário';btn.disabled=false;
+      $('newUserError').textContent='Esse email já está cadastrado.';
+      $('newUserError').style.display='';
+      return false;
+    }
+    // Update profile with name and role (using service-accessible policy)
+    if(data?.user?.id){
+      await sb.from('profiles').upsert({id:data.user.id,display_name:name,role:role});
+    }
+    btn.textContent='Criar Usuário';btn.disabled=false;
+    $('newUserSuccess').textContent='Usuário "'+name+'" criado com sucesso! ('+ROLE_LABELS[role]+')';
+    $('newUserSuccess').style.display='';
+    // Clear form
+    $('newUserName').value='';$('newUserEmail').value='';$('newUserPw').value='';
+    // Reload profiles
+    const{data:profs}=await sb.from('profiles').select('*');
+    profiles=profs||[];
+    renderUsers();
+  }catch(err){
+    btn.textContent='Criar Usuário';btn.disabled=false;
+    $('newUserError').textContent='Erro inesperado: '+err.message;
+    $('newUserError').style.display='';
+  }
+  return false;
+}
+
 // ═══ HELPERS ═══
 function popSel(id){
   const s=$(id);
@@ -927,7 +1017,7 @@ function renderDash(){
 
   $('dashStats').innerHTML=`
     <div class="stat-card"><div class="stat-label">Produtos</div><div class="stat-value">${fabrics.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Total em Estoque</div><div class="stat-value">${total.toFixed(1)}</div></div>
+    <div class="stat-card"><div class="stat-label">Total em Estoque</div><div class="stat-value">${fmt(total)}</div></div>
     <div class="stat-card"><div class="stat-label">Estoque Baixo</div><div class="stat-value" style="color:${low?'var(--orange)':'var(--green)'}">${low}</div></div>
     <div class="stat-card"><div class="stat-label">Sem Estoque</div><div class="stat-value" style="color:${crit?'var(--red)':'var(--green)'}">${crit}</div></div>
     <div class="stat-card"><div class="stat-label">Entradas este Mês</div><div class="stat-value">${entriesMonth}</div></div>
@@ -963,7 +1053,7 @@ function renderStock(){
     let st='ok',sl='OK';
     if(f.stock<=0){st='critical';sl='Sem Estoque';}
     else if(f.stock<=f.min_stock){st='low';sl='Baixo';}
-    return`<tr><td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'')}</td><td><strong>${f.stock.toFixed(1)}</strong> ${f.unit}</td><td>${f.min_stock} ${f.unit}</td><td><span class="badge badge-${st}">${sl}</span></td></tr>`;
+    return`<tr><td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'')}</td><td><strong>${fmt(f.stock)}</strong> ${f.unit}</td><td>${f.min_stock} ${f.unit}</td><td><span class="badge badge-${st}">${sl}</span></td></tr>`;
   }).join('');
 }
 
@@ -990,7 +1080,7 @@ function renderAlerts(){
         <thead><tr><th>Produto</th><th>Cor/Variação</th><th>Fornecedor</th><th>Estoque</th><th>Mínimo</th></tr></thead>
         <tbody>${critical.map(f=>`<tr>
           <td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'—')}</td>
-          <td style="color:var(--red);font-weight:700;">${f.stock.toFixed(1)} ${f.unit}</td>
+          <td style="color:var(--red);font-weight:700;">${fmt(f.stock)} ${f.unit}</td>
           <td>${f.min_stock} ${f.unit}</td>
         </tr>`).join('')}</tbody>
       </table></div>`;
@@ -1008,10 +1098,10 @@ function renderAlerts(){
       <div class="table-wrap"><table>
         <thead><tr><th>Produto</th><th>Cor/Variação</th><th>Fornecedor</th><th>Estoque</th><th>Mínimo</th><th>Faltam</th></tr></thead>
         <tbody>${low.map(f=>{
-          const falta=(f.min_stock-f.stock).toFixed(1);
+          const falta=fmt(f.min_stock-f.stock);
           return`<tr>
             <td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'—')}</td>
-            <td style="color:var(--orange);font-weight:700;">${f.stock.toFixed(1)} ${f.unit}</td>
+            <td style="color:var(--orange);font-weight:700;">${fmt(f.stock)} ${f.unit}</td>
             <td>${f.min_stock} ${f.unit}</td>
             <td style="color:var(--red);font-weight:600;">${falta} ${f.unit}</td>
           </tr>`;
@@ -1076,7 +1166,7 @@ function exportPDF(){
     doc.autoTable({
       startY:startY+4,
       head:[['Produto','Cor/Variação','Fornecedor','Estoque','Mínimo']],
-      body:critical.map(f=>[f.name,f.color,f.supplier||'—',f.stock.toFixed(1)+' '+f.unit,f.min_stock+' '+f.unit]),
+      body:critical.map(f=>[f.name,f.color,f.supplier||'—',fmt(f.stock)+' '+f.unit,f.min_stock+' '+f.unit]),
       styles:{fontSize:9,cellPadding:3},
       headStyles:{fillColor:[220,50,50],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[255,240,240]},
@@ -1095,7 +1185,7 @@ function exportPDF(){
     doc.autoTable({
       startY:startY+4,
       head:[['Produto','Cor/Variação','Fornecedor','Estoque','Mínimo','Faltam']],
-      body:low.map(f=>[f.name,f.color,f.supplier||'—',f.stock.toFixed(1)+' '+f.unit,f.min_stock+' '+f.unit,(f.min_stock-f.stock).toFixed(1)+' '+f.unit]),
+      body:low.map(f=>[f.name,f.color,f.supplier||'—',fmt(f.stock)+' '+f.unit,f.min_stock+' '+f.unit,fmt(f.min_stock-f.stock)+' '+f.unit]),
       styles:{fontSize:9,cellPadding:3},
       headStyles:{fillColor:[200,150,0],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[255,250,230]},
@@ -1114,7 +1204,7 @@ function exportPDF(){
     doc.autoTable({
       startY:startY+4,
       head:[['Produto','Cor/Variação','Fornecedor','Estoque','Mínimo']],
-      body:ok.map(f=>[f.name,f.color,f.supplier||'—',f.stock.toFixed(1)+' '+f.unit,f.min_stock+' '+f.unit]),
+      body:ok.map(f=>[f.name,f.color,f.supplier||'—',fmt(f.stock)+' '+f.unit,f.min_stock+' '+f.unit]),
       styles:{fontSize:9,cellPadding:3},
       headStyles:{fillColor:[50,180,100],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[235,255,245]},
@@ -1181,6 +1271,7 @@ function exportData(){
 
 // ═══ UTILS ═══
 function $(id){return document.getElementById(id);}
+function fmt(n){const v=parseFloat(n)||0;return v%1===0?v.toString():v.toFixed(1);}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 function fmtDate(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
