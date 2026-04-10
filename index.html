@@ -481,17 +481,38 @@ async function handleLogin(e){
   btn.textContent='Entrando...';btn.disabled=true;hide('loginError');
   const{error}=await sb.auth.signInWithPassword({email:$('loginEmail').value,password:$('loginPassword').value});
   btn.textContent='Entrar';btn.disabled=false;
-  if(error)showErr(error.message==='Invalid login credentials'?'Email ou senha incorretos.':error.message);
+  if(error){
+    const msg=error.message;
+    if(msg==='Invalid login credentials')showErr('Email ou senha incorretos. Verifique e tente novamente.');
+    else if(msg.includes('Email not confirmed'))showErr('Email ainda não confirmado. Verifique sua caixa de entrada.');
+    else if(msg.includes('Invalid email'))showErr('Email inválido. Verifique o formato.');
+    else showErr('Erro ao entrar: '+msg);
+  }
 }
 async function handleRegister(e){
   e.preventDefault();
-  if($('regPassword').value!==$('regPassword2').value){showErr('Senhas não conferem.');return;}
+  const email=$('regEmail').value;
+  const pw=$('regPassword').value;
+  if(pw!==$('regPassword2').value){showErr('As senhas não conferem. Digite novamente.');return;}
+  if(pw.length<6){showErr('A senha precisa ter no mínimo 6 caracteres.');return;}
   const btn=document.getElementById('regSubmitBtn');
-  btn.textContent='Criando...';btn.disabled=true;hide('loginError');
-  const{error}=await sb.auth.signUp({email:$('regEmail').value,password:$('regPassword').value});
+  btn.textContent='Criando...';btn.disabled=true;hide('loginError');hide('loginSuccess');
+  const{data,error}=await sb.auth.signUp({email,password:pw});
   btn.textContent='Criar Conta';btn.disabled=false;
-  if(error){showErr(error.message);return;}
-  showOk('Conta criada! Entre com seu email e senha.');
+  if(error){
+    const msg=error.message;
+    if(msg.includes('already registered')||msg.includes('already exists'))showErr('Esse email já está cadastrado. Tente entrar ou use outro email.');
+    else if(msg.includes('valid email'))showErr('Email inválido. Verifique o formato.');
+    else if(msg.includes('password'))showErr('Senha muito fraca. Use no mínimo 6 caracteres.');
+    else showErr('Erro ao criar conta: '+msg);
+    return;
+  }
+  // Supabase returns a user with identities=[] if email already exists (when email confirmation is on)
+  if(data?.user&&data.user.identities&&data.user.identities.length===0){
+    showErr('Esse email já está cadastrado. Tente entrar com sua senha.');
+    return;
+  }
+  showOk('Conta criada com sucesso! Agora entre com seu email e senha.');
 }
 async function handleLogout(){await sb.auth.signOut();location.reload();}
 async function showForgotPw(){
