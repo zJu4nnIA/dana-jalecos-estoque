@@ -536,7 +536,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Data</th><th>Produto</th><th>Variação</th><th>Fornecedor</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th><th>Preço Anterior</th></tr></thead>
+            <thead><tr><th>Data / Hora</th><th>Produto</th><th>Variação</th><th>Fornecedor</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th><th>Preço Anterior</th></tr></thead>
             <tbody id="purchaseList"></tbody>
           </table>
         </div>
@@ -1820,7 +1820,7 @@ function renderPurchases(){
       }
     }
     return`<tr>
-      <td>${fmtDate(p.date)}</td>
+      <td>${fmtDateTime(p.created_at)}</td>
       <td><strong>${esc(nome)}</strong></td>
       <td>${esc(variacao)}</td>
       <td>${esc(p.supplier)}</td>
@@ -1857,7 +1857,7 @@ function exportPurchasesPDF(){
       const prev=getLastPrice(p.fabric_id,p.id);
       let varText='—';
       if(prev!==null){const pct=prev>0?((p.unit_price-prev)/prev*100):0;if(Math.abs(pct)>=0.5)varText=(pct>0?'+':'')+pct.toFixed(1)+'%';}
-      return[fmtDate(p.date),nome,p.supplier||'—',fmt(p.qty),`R$ ${fmtMoney(p.unit_price)}`,`R$ ${fmtMoney(p.total_price)}`,varText];
+      return[fmtDateTime(p.created_at),nome,p.supplier||'—',fmt(p.qty),`R$ ${fmtMoney(p.unit_price)}`,`R$ ${fmtMoney(p.total_price)}`,varText];
     }),
     styles:{fontSize:8,cellPadding:2.5},
     headStyles:{fillColor:[30,30,30],textColor:255,fontStyle:'bold'},
@@ -2112,6 +2112,17 @@ function $(id){return document.getElementById(id);}
 function fmt(n){const v=parseFloat(n)||0;return v%1===0?v.toString():v.toFixed(1);}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 function fmtDate(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}
+function fmtDateTime(dt){
+  if(!dt)return'';
+  const d=new Date(dt);
+  if(isNaN(d))return fmtDate(dt);
+  const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const yy=d.getFullYear();
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mi=String(d.getMinutes()).padStart(2,'0');
+  return`${dd}/${mm}/${yy} ${hh}:${mi}`;
+}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function showConfirm(title,msg,fn){
   $('confirmTitle').textContent=title;$('confirmMsg').textContent=msg;
