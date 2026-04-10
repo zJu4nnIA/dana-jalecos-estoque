@@ -1298,7 +1298,7 @@ async function confirmNFImport(){
     if(!item.unitPrice)continue;
     const fid=item.matchId;
     if(!fid)continue;
-    const prevPurchases=purchases.filter(p=>p.fabric_id===fid).sort((a,b)=>b.date.localeCompare(a.date));
+    const prevPurchases=purchases.filter(p=>p.fabric_id===fid).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     if(prevPurchases.length>=2){
       const prev=prevPurchases[1]; // second most recent (before the one we just added)
       const diff=item.unitPrice-prev.unit_price;
@@ -1733,8 +1733,12 @@ function popPurchaseFilter(){
   $('pFab').innerHTML='<option value="all">Todos os produtos</option>'+fabrics.map(f=>`<option value="${f.id}">${esc(f.name)} — ${esc(f.color)}</option>`).join('');
 }
 
-function getLastPrice(fabricId,beforeDate){
-  const prev=purchases.filter(p=>p.fabric_id===fabricId&&p.date<beforeDate).sort((a,b)=>b.date.localeCompare(a.date));
+function getLastPrice(fabricId,currentPurchaseId){
+  // Find the purchase right before this one (by created_at timestamp)
+  const current=purchases.find(p=>p.id===currentPurchaseId);
+  if(!current)return null;
+  const prev=purchases.filter(p=>p.fabric_id===fabricId&&p.id!==currentPurchaseId&&p.created_at<current.created_at)
+    .sort((a,b)=>b.created_at.localeCompare(a.created_at));
   return prev.length?prev[0].unit_price:null;
 }
 
@@ -1751,7 +1755,7 @@ function renderPurchases(){
   const totalSpent=list.reduce((s,p)=>s+p.total_price,0);
   const totalItems=list.length;
   const avgPrice=totalItems?totalSpent/list.reduce((s,p)=>s+p.qty,0):0;
-  const priceIncreases=list.filter(p=>{const lp=getLastPrice(p.fabric_id,p.date);return lp!==null&&p.unit_price>lp;}).length;
+  const priceIncreases=list.filter(p=>{const lp=getLastPrice(p.fabric_id,p.id);return lp!==null&&p.unit_price>lp;}).length;
 
   $('purchaseStats').innerHTML=`
     <div class="stat-card"><div class="stat-label">Total de Compras</div><div class="stat-value">${totalItems}</div></div>
@@ -1767,7 +1771,7 @@ function renderPurchases(){
     if(!latestByProduct[p.fabric_id]||p.date>latestByProduct[p.fabric_id].date)latestByProduct[p.fabric_id]=p;
   });
   Object.values(latestByProduct).forEach(p=>{
-    const prev=getLastPrice(p.fabric_id,p.date);
+    const prev=getLastPrice(p.fabric_id,p.id);
     if(prev===null)return;
     const diff=p.unit_price-prev;
     const pct=prev>0?((diff/prev)*100):0;
@@ -1803,7 +1807,7 @@ function renderPurchases(){
     const nome=fab?fab.name:'(removido)';
     const variacao=fab?fab.color:'';
     const unit=fab?fab.unit:'';
-    const prev=getLastPrice(p.fabric_id,p.date);
+    const prev=getLastPrice(p.fabric_id,p.id);
     let varHtml='<span style="color:var(--text-muted);">—</span>';
     if(prev!==null){
       const diff=p.unit_price-prev;
@@ -1850,7 +1854,7 @@ function exportPurchasesPDF(){
     body:purchases.map(p=>{
       const fab=getFab(p.fabric_id);
       const nome=fab?fab.name+' '+fab.color:'—';
-      const prev=getLastPrice(p.fabric_id,p.date);
+      const prev=getLastPrice(p.fabric_id,p.id);
       let varText='—';
       if(prev!==null){const pct=prev>0?((p.unit_price-prev)/prev*100):0;if(Math.abs(pct)>=0.5)varText=(pct>0?'+':'')+pct.toFixed(1)+'%';}
       return[fmtDate(p.date),nome,p.supplier||'—',fmt(p.qty),`R$ ${fmtMoney(p.unit_price)}`,`R$ ${fmtMoney(p.total_price)}`,varText];
