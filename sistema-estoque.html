@@ -445,7 +445,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
 
     <!-- ESTOQUE -->
     <div id="page-estoque" class="page hidden">
-      <div class="topbar"><h2>Estoque</h2></div>
+      <div class="topbar"><h2>Estoque</h2><div class="topbar-actions"><button class="btn role-admin role-estoquista" onclick="showPage('entrada',navBtn('entrada'))">📥 Registrar Entrada</button><button class="btn btn-primary role-admin role-estoquista" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
       <div class="content">
         <div class="filter-bar">
           <input id="sSearch" placeholder="Buscar..." oninput="renderStock()">
