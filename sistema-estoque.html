@@ -1727,7 +1727,8 @@ function renderStock(){
   const search=($('sSearch').value||'').toLowerCase();
   const filter=$('sFilter').value;
   let list=fabrics.filter(f=>{
-    const match=(f.name+f.color+(f.supplier||'')).toLowerCase().includes(search);
+    const purchaseSuppliers=purchases.filter(p=>p.fabric_id===f.id).map(p=>p.supplier||'').join(' ');
+    const match=(f.name+' '+f.color+' '+(f.supplier||'')+' '+purchaseSuppliers).toLowerCase().includes(search);
     if(filter==='ok')return match&&f.stock>f.min_stock;
     if(filter==='low')return match&&f.stock<=f.min_stock&&f.stock>0;
     if(filter==='critical')return match&&f.stock<=0;
