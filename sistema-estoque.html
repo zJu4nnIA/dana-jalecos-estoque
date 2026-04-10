@@ -1145,12 +1145,15 @@ async function parseNFPDF(file){
 
   // Strategy 1: Real DANFE — "CODE PRODUCT_NAME NCM CST CFOP UNIT QTY PRICE TOTAL"
   // NCM can have dots (5407.52.10), code can be alphanumeric
-  const danfePattern=/([A-Z0-9\-\/]{3,20})\s+(.{5,60}?)\s+(\d{4}[\.\d]*)\s+(\d{2,3})\s+(\d{4})\s+(M|MT|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID)\s+(\d[\d.,]{0,12})\s+([\d.,]{3,15})\s+([\d.,]{3,15})/gi;
+  const danfePattern=/([A-Z0-9\-\/]{3,20})\s+(.{5,80}?)\s+(\d{4}[\.\d]*)\s+(\d{2,3})\s+(\d{4})\s+(M|MT|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID)\s+(\d[\d.,]{0,12})\s+([\d.,]{3,15})\s+([\d.,]{3,15})/gi;
   let matches=[...prodSection.matchAll(danfePattern)];
 
   if(matches.length){
     matches.forEach(m=>{
-      let nome=m[2].trim().replace(/R\$\s*[\d.,]*/g,'').replace(/\s+/g,' ').trim();
+      let nome=m[2].trim()
+        .replace(/^[A-Z0-9\-\/]{5,20}\s+/,'') // remove product code stuck at start
+        .replace(/R\$\s*[\d.,]*/g,'')
+        .replace(/\s+/g,' ').trim();
       const qtd=parseFloat(m[7].replace(/\./g,'').replace(',','.'))||0;
       const un=m[6];
       const unitPrice=parseFloat(m[8].replace(/\./g,'').replace(',','.'))||0;
@@ -1202,7 +1205,7 @@ async function parseNFPDF(file){
 
 // ── Shared helpers ──
 function extractColor(nome){
-  const m=nome.match(/\b(BRANCO|PRETO|AZUL|VERDE|VERMELHO|ROSA|AMARELO|MARINHO|CINZA|BEGE|LIL[AÁ]S?|ROXO|LARANJA|MARROM|CREME|VINHO|CORAL|SALM[AÃ]O|TURQUESA|DOURADO|PRATA|NUDE|AREIA|MOSTARDA|FERRUGEM|TERRACOTA|MENTA|LAVANDA|BURGUNDY|NAVY|OFF\s?WHITE)\b/i);
+  const m=nome.match(/\b(BRANCO|PRETO|AZUL|VERDE|VERMELHO|ROSA|AMARELO|MARINHO|CINZA|BEGE|LIL[AÁ]S?|ROXO|LARANJA|MARROM|CREME|VINHO|CORAL|SALM[AÃ]O|TURQUESA|DOURADO|PRATA|NUDE|AREIA|MOSTARDA|FERRUGEM|TERRACOTA|MENTA|LAVANDA|BURGUNDY|NAVY|OFF\s?WHITE|GLACE|GLACÊ|CAQUI|KHAKI|GRAFITE|CHAMPAGNE|CARAMELO|CHOCOLATE|OLIVA|PETRÓLEO|ACQUA|PINK|CEREJA|MAGENTA|FUCHSIA|MALVA|INDIGO|JEANS|DENIM|MESCLA|CRU|NATURAL|STONE|ARTICO|GELO|PEROLA|PÉROLA|CAMEL)\b/i);
   return m?m[1].charAt(0).toUpperCase()+m[1].slice(1).toLowerCase():'';
 }
 function removeColorFromName(nome,cor){
