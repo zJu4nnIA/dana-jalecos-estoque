@@ -1951,7 +1951,7 @@ function renderForecast(){
         <div style="display:flex;align-items:center;gap:.4rem;"><span style="width:10px;height:10px;border-radius:50%;background:#f87171;display:inline-block;"></span> <strong>${urgent.length}</strong> urgente${urgent.length!==1?'s':''}</div>
         <div style="display:flex;align-items:center;gap:.4rem;"><span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;display:inline-block;"></span> <strong>${soon.length}</strong> com atenção</div>
         <div style="display:flex;align-items:center;gap:.4rem;"><span style="width:10px;height:10px;border-radius:50%;background:#4ade80;display:inline-block;"></span> <strong>${safe.length}</strong> tranquilo${safe.length!==1?'s':''}</div>
-        ${mostUrgent?`<div style="margin-top:.3rem;padding-top:.5rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-muted);">Mais urgente: <strong style="color:var(--text);">${esc(mostUrgent.name)} ${esc(mostUrgent.color)}</strong> — ${mostUrgent.daysLeft} dias</div>`:''}
+        ${mostUrgent?`<div style="margin-top:.3rem;padding-top:.5rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-muted);">Mais urgente: <strong style="color:var(--text);">${esc(mostUrgent.name)} ${esc(mostUrgent.color)}</strong> — ${mostUrgent.daysLeft<=0?'esgotando hoje':mostUrgent.daysLeft+' dias'}</div>`:''}
       </div>
     `:'';
   }
@@ -1976,7 +1976,7 @@ function renderForecast(){
         <tbody>${items.map(f=>`<tr>
           <td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td>
           <td>${fmt(f.stock)} ${f.unit}</td><td>${f.dailyRate.toFixed(1)}/dia</td>
-          <td style="color:${color};font-weight:700;">${f.daysLeft} dias</td>
+          <td style="color:${color};font-weight:700;">${f.daysLeft<=0?(f.stock<=0?'Esgotado':'Esgotando hoje'):f.daysLeft+' dias'}</td>
           <td>${fmtDate(f.runOutDate.toISOString().slice(0,10))}</td>
           ${showSuggestion?`<td style="color:var(--blue);font-weight:600;">${fmt(Math.ceil(f.suggestedOrder))} ${f.unit}</td>`:''}
         </tr>`).join('')}</tbody>
