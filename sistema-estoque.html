@@ -323,6 +323,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
       <div class="nav-section">Principal</div>
       <button class="active" onclick="showPage('dashboard',this)"><span class="icon">📊</span> Dashboard</button>
       <button onclick="showPage('estoque',this)"><span class="icon">📦</span> Estoque</button>
+      <button class="role-admin role-estoquista" onclick="showPage('alertas',this)"><span class="icon">⚠️</span> Alertas <span id="alertBadge" style="background:var(--red);color:var(--bg);font-size:.65rem;font-weight:700;padding:.1rem .4rem;border-radius:10px;margin-left:.3rem;display:none;">0</span></button>
       <button onclick="showPage('historico',this)"><span class="icon">📜</span> Histórico</button>
       <div class="nav-section role-admin role-estoquista">Estoque</div>
       <button class="role-admin role-estoquista" onclick="showPage('cadastro',this)"><span class="icon">📝</span> Cadastrar Produto</button>
@@ -433,6 +434,16 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
       </div>
     </div>
 
+    <!-- ALERTAS -->
+    <div id="page-alertas" class="page hidden">
+      <div class="topbar"><h2>Alertas de Estoque</h2></div>
+      <div class="content">
+        <div class="stats-grid" id="alertStats"></div>
+        <div id="alertCritical"></div>
+        <div id="alertLow" style="margin-top:1.2rem;"></div>
+      </div>
+    </div>
+
     <!-- HISTÓRICO -->
     <div id="page-historico" class="page hidden">
       <div class="topbar"><h2>Histórico</h2></div>
@@ -452,9 +463,9 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
       <div class="topbar"><h2>Meu Perfil</h2></div>
       <div class="content">
         <div class="form-card">
-          <div class="form-group"><label>Email</label><input id="profEmail" readonly></div>
+          <div class="form-group"><label>Email</label><input id="profEmail" readonly style="color:var(--text-muted);background:var(--bg);cursor:not-allowed;"></div>
           <div class="form-group"><label>Nome de Exibição</label><input id="profName" placeholder="Seu nome"></div>
-          <div class="form-group"><label>Cargo</label><input id="profRole" readonly></div>
+          <div class="form-group"><label>Cargo</label><input id="profRole" readonly style="color:var(--text-muted);background:var(--bg);cursor:not-allowed;"></div>
           <div class="form-actions"><button class="btn btn-primary" onclick="updateProfile()">Salvar Alterações</button></div>
         </div>
       </div>
@@ -529,42 +540,65 @@ function switchTab(t,btn){
 }
 async function handleLogin(e){
   e.preventDefault();
+  const email=$('loginEmail').value.trim();
+  const pw=$('loginPassword').value;
+  if(!email){showErr('Digite seu email.');return false;}
+  if(!pw){showErr('Digite sua senha.');return false;}
   const btn=document.getElementById('loginSubmitBtn');
-  btn.textContent='Entrando...';btn.disabled=true;hide('loginError');
-  const{error}=await sb.auth.signInWithPassword({email:$('loginEmail').value,password:$('loginPassword').value});
-  btn.textContent='Entrar';btn.disabled=false;
-  if(error){
-    const msg=error.message;
-    if(msg==='Invalid login credentials')showErr('Email ou senha incorretos. Verifique e tente novamente.');
-    else if(msg.includes('Email not confirmed'))showErr('Email ainda não confirmado. Verifique sua caixa de entrada.');
-    else if(msg.includes('Invalid email'))showErr('Email inválido. Verifique o formato.');
-    else showErr('Erro ao entrar: '+msg);
+  btn.textContent='Entrando...';btn.disabled=true;
+  hide('loginError');hide('loginSuccess');
+  try{
+    const{error}=await sb.auth.signInWithPassword({email,password:pw});
+    if(error){
+      btn.textContent='Entrar';btn.disabled=false;
+      const m=error.message||'';
+      if(m==='Invalid login credentials')showErr('Email ou senha incorretos.');
+      else if(m.includes('Email not confirmed'))showErr('Email não confirmado. Verifique sua caixa de entrada.');
+      else if(m.includes('Invalid email')||m.includes('valid email'))showErr('Formato de email inválido.');
+      else if(m.includes('rate limit')||m.includes('too many'))showErr('Muitas tentativas. Aguarde um momento e tente novamente.');
+      else showErr('Erro ao entrar: '+m);
+    }
+  }catch(err){
+    btn.textContent='Entrar';btn.disabled=false;
+    showErr('Erro de conexão. Verifique sua internet.');
   }
+  return false;
 }
 async function handleRegister(e){
   e.preventDefault();
-  const email=$('regEmail').value;
+  const email=$('regEmail').value.trim();
   const pw=$('regPassword').value;
-  if(pw!==$('regPassword2').value){showErr('As senhas não conferem. Digite novamente.');return;}
-  if(pw.length<6){showErr('A senha precisa ter no mínimo 6 caracteres.');return;}
+  const pw2=$('regPassword2').value;
+  if(!email){showErr('Digite seu email.');return false;}
+  if(!pw){showErr('Digite uma senha.');return false;}
+  if(pw.length<6){showErr('A senha precisa ter no mínimo 6 caracteres.');return false;}
+  if(pw!==pw2){showErr('As senhas não conferem.');return false;}
   const btn=document.getElementById('regSubmitBtn');
-  btn.textContent='Criando...';btn.disabled=true;hide('loginError');hide('loginSuccess');
-  const{data,error}=await sb.auth.signUp({email,password:pw});
-  btn.textContent='Criar Conta';btn.disabled=false;
-  if(error){
-    const msg=error.message;
-    if(msg.includes('already registered')||msg.includes('already exists'))showErr('Esse email já está cadastrado. Tente entrar ou use outro email.');
-    else if(msg.includes('valid email'))showErr('Email inválido. Verifique o formato.');
-    else if(msg.includes('password'))showErr('Senha muito fraca. Use no mínimo 6 caracteres.');
-    else showErr('Erro ao criar conta: '+msg);
-    return;
+  btn.textContent='Criando...';btn.disabled=true;
+  hide('loginError');hide('loginSuccess');
+  try{
+    const{data,error}=await sb.auth.signUp({email,password:pw});
+    btn.textContent='Criar Conta';btn.disabled=false;
+    if(error){
+      const m=error.message||'';
+      if(m.includes('already registered')||m.includes('already exists'))showErr('Esse email já está cadastrado. Use outro ou faça login.');
+      else if(m.includes('valid email')||m.includes('Invalid email'))showErr('Formato de email inválido.');
+      else if(m.includes('password'))showErr('Senha muito fraca. Use no mínimo 6 caracteres.');
+      else if(m.includes('rate limit')||m.includes('too many'))showErr('Muitas tentativas. Aguarde um momento.');
+      else showErr('Erro ao criar conta: '+m);
+      return false;
+    }
+    // Supabase returns identities=[] if email already exists
+    if(data?.user?.identities?.length===0){
+      showErr('Esse email já está cadastrado. Faça login com sua senha.');
+      return false;
+    }
+    showOk('Conta criada! Agora faça login com seu email e senha.');
+  }catch(err){
+    btn.textContent='Criar Conta';btn.disabled=false;
+    showErr('Erro de conexão. Verifique sua internet.');
   }
-  // Supabase returns a user with identities=[] if email already exists (when email confirmation is on)
-  if(data?.user&&data.user.identities&&data.user.identities.length===0){
-    showErr('Esse email já está cadastrado. Tente entrar com sua senha.');
-    return;
-  }
-  showOk('Conta criada com sucesso! Agora entre com seu email e senha.');
+  return false;
 }
 async function handleLogout(){
   try{await sb.auth.signOut();}catch(e){}
@@ -703,13 +737,20 @@ function showPage(name,btn){
   if(name==='saida'){popSel('exitFab');$('exitDate').value=td;$('exitWho').value=profile.display_name;updAvail();}
   if(name==='estoque')renderStock();
   if(name==='historico'){popHistFilter();renderHist();}
+  if(name==='alertas')renderAlerts();
   if(name==='perfil'){$('profEmail').value=user.email;$('profName').value=profile.display_name;$('profRole').value=ROLE_LABELS[profile.role]||profile.role;}
   if(name==='usuarios')renderUsers();
 }
 function navBtn(page){
   const btns=document.querySelectorAll('.sidebar-nav button:not(.nav-section)');
-  const map={dashboard:0,estoque:1,historico:2,cadastro:3,entrada:4,saida:5,usuarios:6,perfil:7};
+  const map={dashboard:0,estoque:1,alertas:2,historico:3,cadastro:4,entrada:5,saida:6,usuarios:7,perfil:8};
   return btns[map[page]];
+}
+function updateAlertBadge(){
+  const count=fabrics.filter(f=>f.stock<=f.min_stock).length;
+  const b=$('alertBadge');
+  if(count>0){b.textContent=count;b.style.display='inline';}
+  else{b.style.display='none';}
 }
 function today(){return new Date().toISOString().slice(0,10);}
 
@@ -858,6 +899,7 @@ function profName(uid){const p=profiles.find(x=>x.id===uid);return p?p.display_n
 
 // ═══ DASHBOARD ═══
 function renderDash(){
+  updateAlertBadge();
   const total=fabrics.reduce((s,f)=>s+(f.stock||0),0);
   const low=fabrics.filter(f=>f.stock>0&&f.stock<=f.min_stock).length;
   const crit=fabrics.filter(f=>f.stock<=0).length;
@@ -904,6 +946,65 @@ function renderStock(){
     else if(f.stock<=f.min_stock){st='low';sl='Baixo';}
     return`<tr><td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'')}</td><td><strong>${f.stock.toFixed(1)}</strong> ${f.unit}</td><td>${f.min_stock} ${f.unit}</td><td><span class="badge badge-${st}">${sl}</span></td></tr>`;
   }).join('');
+}
+
+// ═══ ALERTS ═══
+function renderAlerts(){
+  const critical=fabrics.filter(f=>f.stock<=0);
+  const low=fabrics.filter(f=>f.stock>0&&f.stock<=f.min_stock);
+  const ok=fabrics.filter(f=>f.stock>f.min_stock);
+
+  $('alertStats').innerHTML=`
+    <div class="stat-card" style="border-left:3px solid var(--red);"><div class="stat-label">Sem Estoque</div><div class="stat-value" style="color:var(--red)">${critical.length}</div><div class="stat-sub">Precisam de reposição urgente</div></div>
+    <div class="stat-card" style="border-left:3px solid var(--orange);"><div class="stat-label">Estoque Baixo</div><div class="stat-value" style="color:var(--orange)">${low.length}</div><div class="stat-sub">Abaixo do mínimo definido</div></div>
+    <div class="stat-card" style="border-left:3px solid var(--green);"><div class="stat-label">Estoque OK</div><div class="stat-value" style="color:var(--green)">${ok.length}</div><div class="stat-sub">Acima do mínimo</div></div>
+  `;
+
+  // Critical section
+  if(critical.length){
+    $('alertCritical').innerHTML=`
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+        <span style="font-size:1.1rem;">🔴</span>
+        <h3 style="font-size:.9rem;font-weight:700;color:var(--red);">Sem Estoque — Reposição Urgente</h3>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Produto</th><th>Cor/Variação</th><th>Fornecedor</th><th>Estoque</th><th>Mínimo</th></tr></thead>
+        <tbody>${critical.map(f=>`<tr>
+          <td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'—')}</td>
+          <td style="color:var(--red);font-weight:700;">${f.stock.toFixed(1)} ${f.unit}</td>
+          <td>${f.min_stock} ${f.unit}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  } else {
+    $('alertCritical').innerHTML='';
+  }
+
+  // Low section
+  if(low.length){
+    $('alertLow').innerHTML=`
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+        <span style="font-size:1.1rem;">🟡</span>
+        <h3 style="font-size:.9rem;font-weight:700;color:var(--orange);">Estoque Baixo — Atenção</h3>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Produto</th><th>Cor/Variação</th><th>Fornecedor</th><th>Estoque</th><th>Mínimo</th><th>Faltam</th></tr></thead>
+        <tbody>${low.map(f=>{
+          const falta=(f.min_stock-f.stock).toFixed(1);
+          return`<tr>
+            <td><strong>${esc(f.name)}</strong></td><td>${esc(f.color)}</td><td>${esc(f.supplier||'—')}</td>
+            <td style="color:var(--orange);font-weight:700;">${f.stock.toFixed(1)} ${f.unit}</td>
+            <td>${f.min_stock} ${f.unit}</td>
+            <td style="color:var(--red);font-weight:600;">${falta} ${f.unit}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+  } else {
+    $('alertLow').innerHTML='';
+  }
+
+  if(!critical.length&&!low.length){
+    $('alertCritical').innerHTML='<div class="empty-state" style="padding:3rem;"><span class="icon">✅</span><p>Tudo certo! Nenhum produto com estoque baixo.</p></div>';
+  }
 }
 
 // ═══ HISTORY ═══
