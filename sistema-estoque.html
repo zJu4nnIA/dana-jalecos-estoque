@@ -1137,72 +1137,64 @@ async function parseNFPDF(file){
   let itemId=0;
   let inProducts=false;
 
-  // Combine all lines into one block for searching
   const block=lines.join('\n');
 
   // Find products section
-  const prodSectionMatch=block.match(/DADOS DOS PRODUTOS[\s\S]*?(?=DADOS ADICIONAIS|FORMA DE PAGAMENTO|$)/i);
+  const prodSectionMatch=block.match(/(?:DADOS DOS PRODUTOS|C[OÓ]DIGO.*DESCRI[CÇ][AÃ]O.*PRODUTO|PRODUTO.*UNIT[AÁ]RIO.*TOTAL)[\s\S]*?(?=DADOS ADICIONAIS|INFORMA[CÇ][OÕ]ES COMPLEMENTARES|RESERVADO AO FISCO|$)/i);
   const prodSection=prodSectionMatch?prodSectionMatch[0]:block;
 
-  // Strategy 1: DANFE pattern — "CODE NAME NCM CFOP UNIT QTY,DECIMAL ..."
-  // Match lines with: optional code, product name, 8-digit NCM, 4-digit CFOP, unit, quantity
-  const danfePattern=/(\d{1,6})\s+(.+?)\s+(\d{8})\s+(\d{4})\s+(MT|M|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID)\s+(\d+[.,]\d{1,4})/gi;
+  // Strategy 1: Real DANFE — "CODE PRODUCT_NAME NCM CST CFOP UNIT QTY PRICE TOTAL"
+  // NCM can have dots (5407.52.10), code can be alphanumeric
+  const danfePattern=/([A-Z0-9\-\/]{3,20})\s+(.{5,60}?)\s+(\d{4}[\.\d]*)\s+(\d{2,3})\s+(\d{4})\s+(M|MT|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID)\s+(\d[\d.,]{0,12})\s+([\d.,]{3,15})\s+([\d.,]{3,15})/gi;
   let matches=[...prodSection.matchAll(danfePattern)];
 
   if(matches.length){
     matches.forEach(m=>{
-      // Clean product name: remove R$, values, extra codes
-      let nome=m[2].trim()
-        .replace(/R\$\s*[\d.,]*/g,'')
-        .replace(/Fornecedor de refer[eê]ncia[:\s]*/gi,'')
-        .replace(/\d{1,2}[.,]\d{3}[.,]\d{2}/g,'')
-        .replace(/\s+/g,' ').trim();
-      const qtd=parseFloat(m[6].replace(',','.'))||0;
-      const un=m[5];
-      // Extract unit price: find R$ values after the quantity match
-      const afterMatch=prodSection.substring(m.index+m[0].length);
-      const prices=[...afterMatch.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map(p=>parseFloat(p[1].replace(/\./g,'').replace(',','.'))||0);
-      // First R$ after qty is usually unit price
-      const unitPrice=prices.length?prices[0]:0;
+      let nome=m[2].trim().replace(/R\$\s*[\d.,]*/g,'').replace(/\s+/g,' ').trim();
+      const qtd=parseFloat(m[7].replace(/\./g,'').replace(',','.'))||0;
+      const un=m[6];
+      const unitPrice=parseFloat(m[8].replace(/\./g,'').replace(',','.'))||0;
       if(qtd>0&&nome.length>2){
         nfItems.push(makeNFItem(itemId++,nome,qtd,un,unitPrice));
       }
     });
   }
 
-  // Strategy 2: simpler — find UNIT followed by QUANTITY
+  // Strategy 2: Simpler DANFE — "CODE NAME NCM CFOP UNIT QTY"
   if(!nfItems.length){
-    const simplePattern=/(MT|UN|KG|RL|CX|METRO|UNID|ROLO)\s+(\d+[.,]\d{1,4})/gi;
-    const sMatches=[...prodSection.matchAll(simplePattern)];
-    sMatches.forEach(m=>{
-      const un=m[1];
-      const qtd=parseFloat(m[2].replace(',','.'))||0;
-      if(qtd<=0)return;
-      // Find product name: look backwards from match position for text
-      const before=prodSection.substring(0,m.index);
-      const lastLines=before.split('\n').filter(l=>l.trim());
-      const lastLine=lastLines[lastLines.length-1]||'';
-      // Extract name: remove codes
-      let nome=lastLine.replace(/^\d{1,6}\s+/,'').replace(/\d{8}\s+\d{4}\s*$/,'').trim();
-      if(!nome&&lastLines.length>1)nome=lastLines[lastLines.length-2].replace(/^\d{1,6}\s+/,'').trim();
-      if(nome.length>2&&!nome.match(/^(CNPJ|ICMS|PIS|COFINS|TOTAL|BASE|VALOR|FRETE|NCM|CFOP|C[OÓ]D)/i)){
-        nfItems.push(makeNFItem(itemId++,nome,qtd,un,0));
-      }
+    const simpleDANFE=/(\d{1,6})\s+(.{5,60}?)\s+(\d{8})\s+(\d{4})\s+(M|MT|UN|KG|RL|PC|PÇ|CX|ROLO|METRO|UNID)\s+(\d+[.,]\d{1,4})/gi;
+    matches=[...prodSection.matchAll(simpleDANFE)];
+    matches.forEach(m=>{
+      let nome=m[2].trim().replace(/R\$\s*[\d.,]*/g,'').replace(/\s+/g,' ').trim();
+      const qtd=parseFloat(m[6].replace(',','.'))||0;
+      const un=m[5];
+      const afterMatch=prodSection.substring(m.index+m[0].length);
+      const priceM=afterMatch.match(/([\d.,]{3,15})\s+([\d.,]{3,15})/);
+      const unitPrice=priceM?parseFloat(priceM[1].replace(/\./g,'').replace(',','.'))||0:0;
+      if(qtd>0&&nome.length>2)nfItems.push(makeNFItem(itemId++,nome,qtd,un,unitPrice));
     });
   }
 
-  // Strategy 3: fallback — any line with quantity + unit anywhere in document
+  // Strategy 3: Find UNIT + QTY pattern anywhere (skip transport/weight lines)
   if(!nfItems.length){
-    for(const line of lines){
-      const m=line.match(/(.{5,60}?)\s+(\d+[.,]\d{1,4})\s+(MT|M|UN|KG|RL|PC|PÇ|CX|METRO|UNID)\b/i);
-      if(m){
-        let nome=m[1].replace(/^\d{1,6}\s+/,'').replace(/\d{8}/g,'').trim();
-        const qtd=parseFloat(m[2].replace(',','.'))||0;
-        if(qtd>0&&nome.length>3&&!nome.match(/^(CNPJ|CPF|ICMS|PIS|COFINS|TOTAL|BASE|VALOR|FRETE|IE|CST|NCM|Chave|R\$)/i)){
-          nfItems.push(makeNFItem(itemId++,nome,qtd,m[3],0));
+    const unitQtyPattern=/(M|MT|UN|KG|RL|CX|METRO|UNID)\s+(\d[\d.,]{0,10})\s+([\d.,]{3,15})\s+([\d.,]{3,15})/gi;
+    const uMatches=[...prodSection.matchAll(unitQtyPattern)];
+    uMatches.forEach(m=>{
+      const un=m[1];const qtd=parseFloat(m[2].replace(/\./g,'').replace(',','.'))||0;
+      const unitPrice=parseFloat(m[3].replace(/\./g,'').replace(',','.'))||0;
+      if(qtd<=0)return;
+      // Get product name from before match
+      const before=prodSection.substring(Math.max(0,m.index-200),m.index);
+      const bLines=before.split('\n').filter(l=>l.trim().length>3);
+      let nome='';
+      for(let i=bLines.length-1;i>=0;i--){
+        const cleaned=bLines[i].replace(/^\S{3,20}\s+/,'').replace(/\d{4}[\.\d]*\s+\d{2,3}\s+\d{4}\s*$/,'').trim();
+        if(cleaned.length>3&&!cleaned.match(/^(CNPJ|ICMS|PIS|COFINS|TOTAL|BASE|VALOR|FRETE|NCM|CFOP|VOLUME|PESO|ESPÉCIE|QUANTIDADE|TRANSPORTA)/i)){
+          nome=cleaned;break;
         }
       }
-    }
+      if(nome.length>2)nfItems.push(makeNFItem(itemId++,nome,qtd,un,unitPrice));
+    });
   }
 
   if(!nfItems.length)throw new Error('Não consegui identificar produtos no PDF. Tente usar o arquivo XML.');
