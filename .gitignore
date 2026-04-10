@@ -1,0 +1,4 @@
+.env
+.claude/
+*.ogg
+setup-supabase.sql
