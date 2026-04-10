@@ -2088,24 +2088,62 @@ function exportPurchasesPDF(){
   doc.setDrawColor(200);doc.line(14,32,196,32);
 
   const totalSpent=purchases.reduce((s,p)=>s+p.total_price,0);
+  const increases=purchases.filter(p=>{const lp=getLastPrice(p.fabric_id,p.id);return lp!==null&&p.unit_price>lp;}).length;
+  const decreases=purchases.filter(p=>{const lp=getLastPrice(p.fabric_id,p.id);return lp!==null&&p.unit_price<lp;}).length;
   doc.setTextColor(0);doc.setFontSize(10);
   doc.text('Total de compras: '+purchases.length,14,40);
   doc.text('Total gasto: R$ '+fmtMoney(totalSpent),14,46);
+  doc.setTextColor(220,50,50);doc.text('Aumentos de preço: '+increases,14,52);
+  doc.setTextColor(50,180,100);doc.text('Reduções de preço: '+decreases,100,52);
+
+  // Add charts as images
+  let startY=60;
+  const chartSupplier=chartInstances.supplier;
+  const chartSpending=chartInstances.spending;
+
+  if(chartSupplier||chartSpending){
+    const chartW=85;const chartH=55;
+    if(chartSupplier){
+      try{
+        const img=chartSupplier.toBase64Image('image/png',1);
+        doc.setTextColor(0);doc.setFontSize(9);doc.setFont('helvetica','bold');
+        doc.text('Gasto por Fornecedor',14,startY);
+        doc.addImage(img,'PNG',14,startY+2,chartW,chartH);
+      }catch(e){}
+    }
+    if(chartSpending){
+      try{
+        const img=chartSpending.toBase64Image('image/png',1);
+        doc.setTextColor(0);doc.setFontSize(9);doc.setFont('helvetica','bold');
+        doc.text('Gastos — Últimos 6 Meses',105,startY);
+        doc.addImage(img,'PNG',105,startY+2,chartW,chartH);
+      }catch(e){}
+    }
+    startY+=chartH+10;
+  }
 
   doc.autoTable({
-    startY:54,
-    head:[['Data','Produto','Fornecedor','Qtd','Preço Unit.','Total','Variação']],
+    startY:startY,
+    head:[['Data','Produto','Variação','Fornecedor','Qtd','Preço Unit.','Total','Var. Preço']],
     body:purchases.map(p=>{
       const fab=getFab(p.fabric_id);
-      const nome=fab?fab.name+' '+fab.color:'—';
+      const nome=fab?fab.name:'—';
+      const variacao=fab?fab.color:'';
       const prev=getLastPrice(p.fabric_id,p.id);
       let varText='—';
       if(prev!==null){const pct=prev>0?((p.unit_price-prev)/prev*100):0;if(Math.abs(pct)>=0.5)varText=(pct>0?'+':'')+pct.toFixed(1)+'%';}
-      return[fmtDateTime(p.created_at),nome,p.supplier||'—',fmt(p.qty),`R$ ${fmtMoney(p.unit_price)}`,`R$ ${fmtMoney(p.total_price)}`,varText];
+      return[fmtDateTime(p.created_at),nome,variacao,p.supplier||'—',fmt(p.qty),`R$ ${fmtMoney(p.unit_price)}`,`R$ ${fmtMoney(p.total_price)}`,varText];
     }),
-    styles:{fontSize:8,cellPadding:2.5},
+    styles:{fontSize:7,cellPadding:2},
     headStyles:{fillColor:[30,30,30],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[245,245,245]},
+    didParseCell:function(data){
+      if(data.section==='body'&&data.column.index===7){
+        const v=data.cell.raw;
+        if(v.startsWith('+')){data.cell.styles.textColor=[220,50,50];data.cell.styles.fontStyle='bold';}
+        else if(v.startsWith('-')){data.cell.styles.textColor=[50,180,100];data.cell.styles.fontStyle='bold';}
+      }
+    },
     margin:{left:14,right:14}
   });
 
