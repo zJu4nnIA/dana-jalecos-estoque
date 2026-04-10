@@ -324,10 +324,12 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
       <button class="active" onclick="showPage('dashboard',this)"><span class="icon">📊</span> Dashboard</button>
       <button onclick="showPage('estoque',this)"><span class="icon">📦</span> Estoque</button>
       <button onclick="showPage('historico',this)"><span class="icon">📜</span> Histórico</button>
-      <div class="nav-section admin-only">Administração</div>
-      <button class="admin-only" onclick="showPage('cadastro',this)"><span class="icon">📝</span> Cadastrar Produto</button>
-      <button class="admin-only" onclick="showPage('entrada',this)"><span class="icon">📥</span> Registrar Entrada</button>
+      <div class="nav-section role-admin role-estoquista">Estoque</div>
+      <button class="role-admin role-estoquista" onclick="showPage('cadastro',this)"><span class="icon">📝</span> Cadastrar Produto</button>
+      <button class="role-admin role-estoquista" onclick="showPage('entrada',this)"><span class="icon">📥</span> Registrar Entrada</button>
       <button onclick="showPage('saida',this)"><span class="icon">📤</span> Registrar Saída</button>
+      <div class="nav-section role-admin">Administração</div>
+      <button class="role-admin" onclick="showPage('usuarios',this)"><span class="icon">👥</span> Gerenciar Usuários</button>
       <div class="nav-section">Conta</div>
       <button onclick="showPage('perfil',this)"><span class="icon">👤</span> Meu Perfil</button>
     </nav>
@@ -340,7 +342,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
   <div class="main">
     <!-- DASHBOARD -->
     <div id="page-dashboard" class="page">
-      <div class="topbar"><h2>Dashboard</h2><div class="topbar-actions"><button class="btn btn-primary admin-only" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
+      <div class="topbar"><h2>Dashboard</h2><div class="topbar-actions"><button class="btn btn-primary role-admin role-estoquista" onclick="showPage('cadastro',navBtn('cadastro'))">+ Novo Produto</button></div></div>
       <div class="content">
         <div class="stats-grid" id="dashStats"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
@@ -441,7 +443,7 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
           <input id="hFrom" type="date" onchange="renderHist()">
           <input id="hTo" type="date" onchange="renderHist()">
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Quem</th><th>Detalhe</th><th class="admin-only">Ações</th></tr></thead><tbody id="histList"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Quem</th><th>Detalhe</th><th class="role-admin">Ações</th></tr></thead><tbody id="histList"></tbody></table></div>
       </div>
     </div>
 
@@ -454,6 +456,44 @@ body{font-family:var(--body);color:var(--text);background:var(--bg);min-height:1
           <div class="form-group"><label>Nome de Exibição</label><input id="profName" placeholder="Seu nome"></div>
           <div class="form-group"><label>Cargo</label><input id="profRole" readonly></div>
           <div class="form-actions"><button class="btn btn-primary" onclick="updateProfile()">Salvar Alterações</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GERENCIAR USUÁRIOS (admin only) -->
+    <div id="page-usuarios" class="page hidden">
+      <div class="topbar"><h2>Gerenciar Usuários</h2></div>
+      <div class="content">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:1.2rem;">
+          <div class="stat-card"><div class="stat-label">Total Usuários</div><div class="stat-value" id="usrTotal">0</div></div>
+          <div class="stat-card"><div class="stat-label">Admins</div><div class="stat-value" id="usrAdmins" style="color:var(--blue)">0</div></div>
+          <div class="stat-card"><div class="stat-label">Estoquistas</div><div class="stat-value" id="usrEstoq" style="color:var(--green)">0</div></div>
+          <div class="stat-card"><div class="stat-label">Costureiras</div><div class="stat-value" id="usrCost" style="color:var(--orange)">0</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Email</th><th>Cargo</th><th>Alterar Cargo</th></tr></thead>
+            <tbody id="usrList"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:1.2rem;padding:1rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
+          <h4 style="font-size:.82rem;font-weight:700;margin-bottom:.6rem;">Permissões por Cargo</h4>
+          <table style="width:100%;font-size:.78rem;color:var(--text-secondary);border-collapse:collapse;">
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left;padding:.4rem .6rem;color:var(--text-muted);font-size:.7rem;text-transform:uppercase;">Ação</th>
+              <th style="padding:.4rem .6rem;color:var(--blue);font-size:.7rem;">Admin</th>
+              <th style="padding:.4rem .6rem;color:var(--green);font-size:.7rem;">Estoquista</th>
+              <th style="padding:.4rem .6rem;color:var(--orange);font-size:.7rem;">Costureira</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Ver Dashboard</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Ver Estoque</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Ver Histórico</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Cadastrar Produto</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Registrar Entrada</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Registrar Saída</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:.4rem .6rem;">Excluir Movimentações</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td><td style="text-align:center;color:var(--red);">✗</td></tr>
+            <tr><td style="padding:.4rem .6rem;">Gerenciar Usuários</td><td style="text-align:center;">✓</td><td style="text-align:center;color:var(--red);">✗</td><td style="text-align:center;color:var(--red);">✗</td></tr>
+          </table>
         </div>
       </div>
     </div>
@@ -526,7 +566,11 @@ async function handleRegister(e){
   }
   showOk('Conta criada com sucesso! Agora entre com seu email e senha.');
 }
-async function handleLogout(){await sb.auth.signOut();location.reload();}
+async function handleLogout(){
+  try{await sb.auth.signOut();}catch(e){}
+  user=null;profile=null;
+  showScreen('login');
+}
 async function showForgotPw(){
   const em=$('loginEmail').value;
   if(!em){showErr('Digite seu email primeiro.');return;}
@@ -595,17 +639,21 @@ async function saveProfile(){
   enterApp();
 }
 
+const ROLE_LABELS={admin:'Administrador',estoquista:'Estoquista',costureira:'Costureira',user:'Usuário'};
+function hasRole(...roles){return roles.includes(profile?.role);}
+
 async function enterApp(){
   showScreen('app');
-  // Set user info
   $('userName').textContent=profile.display_name;
-  $('userRole').textContent=profile.role==='admin'?'Administrador':'Usuário';
+  $('userRole').textContent=ROLE_LABELS[profile.role]||profile.role;
   $('userAvatar').textContent=profile.display_name.charAt(0).toUpperCase();
-  // Toggle admin elements
-  const isAdmin=profile.role==='admin';
-  document.querySelectorAll('.admin-only').forEach(el=>{
-    el.style.display=isAdmin?'':'none';
-  });
+  // Toggle elements by role
+  const r=profile.role;
+  document.querySelectorAll('.role-admin').forEach(el=>el.style.display=r==='admin'?'':'none');
+  document.querySelectorAll('.role-estoquista').forEach(el=>el.style.display=(r==='admin'||r==='estoquista')?'':'none');
+  document.querySelectorAll('.role-costureira').forEach(el=>el.style.display=(r==='admin'||r==='estoquista'||r==='costureira')?'':'none');
+  // Legacy admin-only class
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=r==='admin'?'':'none');
   await loadAll();
   showPage('dashboard',navBtn('dashboard'));
   setupRealtime();
@@ -655,11 +703,12 @@ function showPage(name,btn){
   if(name==='saida'){popSel('exitFab');$('exitDate').value=td;$('exitWho').value=profile.display_name;updAvail();}
   if(name==='estoque')renderStock();
   if(name==='historico'){popHistFilter();renderHist();}
-  if(name==='perfil'){$('profEmail').value=user.email;$('profName').value=profile.display_name;$('profRole').value=profile.role==='admin'?'Administrador':'Usuário';}
+  if(name==='perfil'){$('profEmail').value=user.email;$('profName').value=profile.display_name;$('profRole').value=ROLE_LABELS[profile.role]||profile.role;}
+  if(name==='usuarios')renderUsers();
 }
 function navBtn(page){
   const btns=document.querySelectorAll('.sidebar-nav button:not(.nav-section)');
-  const map={dashboard:0,estoque:1,historico:2,cadastro:3,entrada:4,saida:5,perfil:6};
+  const map={dashboard:0,estoque:1,historico:2,cadastro:3,entrada:4,saida:5,usuarios:6,perfil:7};
   return btns[map[page]];
 }
 function today(){return new Date().toISOString().slice(0,10);}
@@ -746,6 +795,50 @@ async function updateProfile(){
   $('userName').textContent=name;
   $('userAvatar').textContent=name.charAt(0).toUpperCase();
   toast('Perfil atualizado!');
+}
+
+// ═══ USER MANAGEMENT (admin only) ═══
+function renderUsers(){
+  if(!hasRole('admin'))return;
+  $('usrTotal').textContent=profiles.length;
+  $('usrAdmins').textContent=profiles.filter(p=>p.role==='admin').length;
+  $('usrEstoq').textContent=profiles.filter(p=>p.role==='estoquista').length;
+  $('usrCost').textContent=profiles.filter(p=>p.role==='costureira').length;
+  const tb=$('usrList');
+  tb.innerHTML=profiles.map(p=>{
+    const isMe=p.id===user.id;
+    const rl=ROLE_LABELS[p.role]||p.role;
+    const badgeColor=p.role==='admin'?'blue':p.role==='estoquista'?'ok':p.role==='costureira'?'low':'';
+    return`<tr>
+      <td><strong>${esc(p.display_name||'(sem nome)')}</strong>${isMe?' <span style="font-size:.68rem;color:var(--text-muted);">(você)</span>':''}</td>
+      <td style="font-size:.78rem;color:var(--text-muted);">${esc(getUserEmail(p.id))}</td>
+      <td><span class="badge badge-${badgeColor}">${rl}</span></td>
+      <td>${isMe?'<span style="font-size:.78rem;color:var(--text-muted);">—</span>':`
+        <select onchange="changeRole('${p.id}',this.value)" style="padding:.3rem .5rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;font-size:.78rem;color:var(--text);font-family:var(--body);cursor:pointer;">
+          <option value="admin"${p.role==='admin'?' selected':''}>Administrador</option>
+          <option value="estoquista"${p.role==='estoquista'?' selected':''}>Estoquista</option>
+          <option value="costureira"${p.role==='costureira'?' selected':''}>Costureira</option>
+        </select>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+function getUserEmail(uid){
+  // We don't have emails in profiles, show ID hint
+  if(uid===user.id)return user.email;
+  // For other users, try to find from auth (not available client-side)
+  return '—';
+}
+async function changeRole(uid,newRole){
+  if(!hasRole('admin')){toast('Sem permissão.');return;}
+  if(uid===user.id){toast('Você não pode alterar seu próprio cargo.');return;}
+  const{error}=await sb.from('profiles').update({role:newRole}).eq('id',uid);
+  if(error){toast('Erro: '+error.message);return;}
+  // Update local cache
+  const p=profiles.find(x=>x.id===uid);
+  if(p)p.role=newRole;
+  renderUsers();
+  toast('Cargo alterado para '+ROLE_LABELS[newRole]+'!');
 }
 
 // ═══ HELPERS ═══
